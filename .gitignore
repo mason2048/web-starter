@@ -1,0 +1,45 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.log
+.mvn/timing.properties
+
+# Frontend
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Repository policy tooling
+__pycache__/
+*.py[cod]
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+*.pem
+*.key
+*.p12
+*.jks
+
+# Runtime data
+/data/
+/logs/
+/tmp/
+
+# Test artifacts
+playwright-report/
+test-results/
+/screenshots/

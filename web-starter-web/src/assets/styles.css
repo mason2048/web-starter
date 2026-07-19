@@ -1,0 +1,229 @@
+:root {
+  color-scheme: light;
+  --ws-navy-950: #031b34;
+  --ws-navy-900: #062544;
+  --ws-navy-850: #082b4d;
+  --ws-teal-600: #009b94;
+  --ws-teal-500: #00aaa2;
+  --ws-teal-100: #ddf5f3;
+  --ws-blue-500: #1878d1;
+  --ws-text: #172840;
+  --ws-text-secondary: #647186;
+  --ws-border: #dfe5ec;
+  --ws-bg: #f5f7fa;
+  --ws-surface: #ffffff;
+  --ws-danger: #e5484d;
+  --ws-radius: 6px;
+  --ws-shadow: 0 8px 24px rgb(20 38 63 / 8%);
+  font-family:
+    Inter, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --el-color-primary: var(--ws-teal-600);
+  --el-color-primary-light-3: #35b5b0;
+  --el-color-primary-light-5: #70cac6;
+  --el-color-primary-light-7: #afe1df;
+  --el-color-primary-light-9: #e8f7f6;
+  --el-color-primary-dark-2: #007b76;
+  --el-border-radius-base: var(--ws-radius);
+  --el-font-size-base: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--ws-text);
+  background: var(--ws-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page-content {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 30px 36px 46px;
+}
+
+.surface-panel {
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-border);
+  border-radius: 8px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filter-row .filter-input {
+  width: 270px;
+}
+
+.table-panel {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+}
+
+.table-panel .el-table {
+  --el-table-header-bg-color: #fafbfc;
+  --el-table-row-hover-bg-color: #f4fbfa;
+  --el-table-border-color: #e5eaf0;
+  color: #354258;
+}
+
+.table-panel .el-table th.el-table__cell {
+  height: 54px;
+  color: #263449;
+  font-weight: 600;
+}
+
+.table-panel .el-table td.el-table__cell {
+  height: 62px;
+}
+
+.table-panel .el-table .cell {
+  line-height: 1.45;
+}
+
+.pagination-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 24px 0 4px;
+  color: var(--ws-text-secondary);
+}
+
+.page-loading {
+  min-height: 240px;
+}
+
+.empty-state {
+  padding: 28px 0;
+}
+
+.drawer-form {
+  padding: 4px 4px 24px;
+}
+
+.drawer-form .el-form-item {
+  margin-bottom: 23px;
+}
+
+.drawer-form .el-select,
+.drawer-form .el-input-number {
+  width: 100%;
+}
+
+.drawer-footer {
+  display: flex;
+  gap: 14px;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.drawer-footer .el-button {
+  min-width: 106px;
+}
+
+.text-muted {
+  color: var(--ws-text-secondary);
+}
+
+.mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.el-button {
+  font-weight: 500;
+}
+
+.el-drawer__header {
+  padding: 24px 24px 20px;
+  margin-bottom: 0;
+  color: var(--ws-text);
+  font-size: 19px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--ws-border);
+}
+
+.el-drawer__body {
+  padding: 22px 24px;
+}
+
+.el-drawer__footer {
+  padding: 18px 24px 46px;
+  border-top: 1px solid var(--ws-border);
+}
+
+.el-dialog {
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .page-content {
+    padding: 22px 18px 36px;
+  }
+
+  .filter-row .filter-input {
+    width: 100%;
+  }
+
+  .filter-row > .el-select {
+    width: calc(100% - 112px) !important;
+  }
+
+  .table-panel {
+    overflow-x: auto;
+  }
+
+  .pagination-row {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .el-drawer {
+    width: min(92vw, 430px) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

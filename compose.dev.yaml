@@ -1,0 +1,14 @@
+services:
+  mysql:
+    ports:
+      - "127.0.0.1:${WEB_STARTER_DB_PORT:-33060}:3306"
+  redis:
+    ports:
+      - "127.0.0.1:${WEB_STARTER_REDIS_PORT:-63790}:6379"
+  app:
+    ports:
+      - "127.0.0.1:${WEB_STARTER_SERVER_PORT:-8080}:8080"
+
+networks:
+  data:
+    internal: false
