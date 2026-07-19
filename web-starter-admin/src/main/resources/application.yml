@@ -75,7 +75,7 @@ management:
 info:
   app:
     name: 启程 Web Starter
-    version: 1.0.0
+    version: 2.0.0-SNAPSHOT
     runtime: Java 21 / Spring Boot 4.1
 
 web-starter:

@@ -137,7 +137,7 @@ export WEB_STARTER_BOOTSTRAP_ADMIN_PASSWORD='replace-with-a-local-password'
 export WEB_STARTER_OAUTH_DEVELOPMENT_KEYS_ALLOWED='true'
 export WEB_STARTER_SERVER_PORT='18080'
 ./mvnw -DskipTests package
-java -jar web-starter-admin/target/web-starter-admin-1.0.0.jar
+java -jar web-starter-admin/target/web-starter-admin-2.0.0-SNAPSHOT.jar
 ```
 
 启动前端：
