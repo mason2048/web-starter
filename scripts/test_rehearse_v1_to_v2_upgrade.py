@@ -259,6 +259,107 @@ class V1ToV2UpgradeHarnessTest(unittest.TestCase):
 
         self.assertEqual(1, opener.open.call_count)
 
+    def test_lifecycle_personal_credential_is_active_before_browser_acceptance(self) -> None:
+        runtime = upgrade.RuntimeContext(
+            self.root,
+            self.root / "runtime-pre-browser-lifecycle",
+            upgrade.generate_resource_names(RUN_ID),
+            upgrade.Ports(18080, 18443, 18081),
+            upgrade.EvidenceState(),
+        )
+        token_file = self.root / "lifecycle-personal-token.json"
+        fixture = {
+            "lifecyclePatFile": str(token_file),
+            "lifecyclePatId": "9007199254740993",
+            "lifecyclePatName": "upgrade-lifecycle",
+        }
+        before = {
+            "id": fixture["lifecyclePatId"],
+            "name": fixture["lifecyclePatName"],
+            "revokedAt": None,
+            "lastUsedAt": None,
+        }
+        after = {**before, "lastUsedAt": "2026-07-26T10:00:00Z"}
+        api = MagicMock()
+        api.request.side_effect = [[before], [after]]
+
+        with patch.object(upgrade, "_AdminApi", return_value=api), patch.object(
+            upgrade, "_raw_mcp_initialize_status", return_value=200
+        ) as probe:
+            upgrade._pre_browser_lifecycle_probe(runtime, fixture)
+
+        api.login.assert_called_once_with()
+        probe.assert_called_once_with(runtime, token_file)
+        self.assertEqual(2, api.request.call_count)
+
+    def test_final_lifecycle_readback_requires_identity_revocation_and_disables_service(self) -> None:
+        runtime = upgrade.RuntimeContext(
+            self.root,
+            self.root / "runtime-final-lifecycle",
+            upgrade.generate_resource_names(RUN_ID),
+            upgrade.Ports(18080, 18443, 18081),
+            upgrade.EvidenceState(),
+        )
+        lifecycle_file = self.root / "lifecycle-personal-token.json"
+        service_file = self.root / "service-token.json"
+        fixture = {
+            "lifecyclePatFile": str(lifecycle_file),
+            "lifecyclePatId": "9007199254740993",
+            "lifecyclePatName": "upgrade-lifecycle",
+            "serviceAccountId": "9007199254740995",
+        }
+        manifest = {"tokenFiles": {"serviceToken": str(service_file)}}
+        revoked = {
+            "id": fixture["lifecyclePatId"],
+            "name": fixture["lifecyclePatName"],
+            "revokedAt": "2026-07-26T10:01:00Z",
+            "lastUsedAt": "2026-07-26T10:00:00Z",
+        }
+        disabled_service = {
+            "id": fixture["serviceAccountId"],
+            "enabled": False,
+        }
+        api = MagicMock()
+        api.request.side_effect = [[revoked], None, [disabled_service]]
+
+        with patch.object(upgrade, "_AdminApi", return_value=api), patch.object(
+            upgrade,
+            "_raw_mcp_initialize_status",
+            side_effect=[401, 200, 401],
+        ) as probe:
+            upgrade._final_lifecycle_readback(runtime, fixture, manifest)
+
+        self.assertEqual(
+            [
+                (runtime, lifecycle_file),
+                (runtime, service_file),
+                (runtime, service_file),
+            ],
+            [call.args for call in probe.call_args_list],
+        )
+        requests = [call.args for call in api.request.call_args_list]
+        self.assertFalse(any(
+            args[0] == "DELETE" and "/personal-tokens/" in args[1]
+            for args in requests
+        ))
+        self.assertTrue(any(
+            args[0] == "DELETE"
+            and args[1].endswith(
+                f"/api/security/service-accounts/{fixture['serviceAccountId']}"
+            )
+            for args in requests
+        ))
+
+    def test_browser_identity_lifecycle_is_between_active_and_revoked_proofs(self) -> None:
+        source = upgrade.SCRIPT_PATH.read_text(encoding="utf-8")
+        active_probe = source.rindex("_pre_browser_lifecycle_probe(runtime, service_fixture)")
+        browser_runtime = source.rindex("_run_playwright(runtime, runner")
+        revoked_readback = source.rindex(
+            "_final_lifecycle_readback(runtime, service_fixture, manifest_v2)"
+        )
+        self.assertLess(active_probe, browser_runtime)
+        self.assertLess(browser_runtime, revoked_readback)
+
     def test_direct_script_import_can_enter_public_loopback_context(self) -> None:
         script = """
 import pathlib

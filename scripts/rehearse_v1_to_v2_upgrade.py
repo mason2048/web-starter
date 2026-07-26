@@ -4775,39 +4775,89 @@ def _raw_mcp_initialize_status(
             os.environ["WEB_STARTER_ACCEPTANCE_LOOPBACK_ADDRESS"] = previous_address
 
 
+def _pre_browser_lifecycle_probe(
+        runtime: RuntimeContext,
+        service_fixture: Mapping[str, str]) -> None:
+    api = _AdminApi(runtime)
+    api.login()
+    lifecycle_pat_file = Path(service_fixture["lifecyclePatFile"])
+    pats = api.request("GET", api.private + "/api/security/personal-tokens", private=True)
+    lifecycle_pat = next((
+        item
+        for item in pats
+        if isinstance(item, dict)
+        and str(item.get("id")) == service_fixture["lifecyclePatId"]
+        and item.get("name") == service_fixture["lifecyclePatName"]
+    ), None) if isinstance(pats, list) else None
+    if not isinstance(lifecycle_pat, dict):
+        raise UpgradeRehearsalError(
+            "PERSONAL_CREDENTIAL_PRE_BROWSER_MISSING",
+            "lifecycle personal credential was not present before browser acceptance",
+        )
+    if lifecycle_pat.get("revokedAt") is not None:
+        raise UpgradeRehearsalError(
+            "PERSONAL_CREDENTIAL_PRE_BROWSER_REVOKED",
+            "lifecycle personal credential was revoked before browser acceptance",
+        )
+    pat_status = _raw_mcp_initialize_status(runtime, lifecycle_pat_file)
+    if pat_status != 200:
+        raise UpgradeRehearsalError(
+            f"PERSONAL_CREDENTIAL_PRE_BROWSER_HTTP_{pat_status}",
+            "lifecycle personal credential was not usable before browser acceptance",
+        )
+    pats_after = api.request(
+        "GET", api.private + "/api/security/personal-tokens", private=True
+    )
+    lifecycle_pat_after = next((
+        item
+        for item in pats_after
+        if isinstance(item, dict)
+        and str(item.get("id")) == service_fixture["lifecyclePatId"]
+        and item.get("name") == service_fixture["lifecyclePatName"]
+    ), None) if isinstance(pats_after, list) else None
+    if (
+        not isinstance(lifecycle_pat_after, dict)
+        or lifecycle_pat_after.get("revokedAt") is not None
+        or not lifecycle_pat_after.get("lastUsedAt")
+    ):
+        raise UpgradeRehearsalError(
+            "PERSONAL_CREDENTIAL_PRE_BROWSER_READBACK",
+            "active lifecycle personal credential use was not read back before browser acceptance",
+        )
+
+
 def _final_lifecycle_readback(
         runtime: RuntimeContext,
-        credential_root: Path,
         service_fixture: Mapping[str, str],
-    manifest: Mapping[str, Any]) -> None:
+        manifest: Mapping[str, Any]) -> None:
     api = _AdminApi(runtime)
     api.login()
     token_files = manifest.get("tokenFiles", {})
     lifecycle_pat_file = Path(service_fixture["lifecyclePatFile"])
     service_token_file = Path(str(token_files["serviceToken"]))
-    pats_before = api.request("GET", api.private + "/api/security/personal-tokens", private=True)
-    lifecycle_pat_before = next((
+    pats = api.request("GET", api.private + "/api/security/personal-tokens", private=True)
+    lifecycle_pat = next((
         item
-        for item in pats_before
+        for item in pats
         if isinstance(item, dict)
         and str(item.get("id")) == service_fixture["lifecyclePatId"]
         and item.get("name") == service_fixture["lifecyclePatName"]
-    ), None) if isinstance(pats_before, list) else None
-    if not isinstance(lifecycle_pat_before, dict):
+    ), None) if isinstance(pats, list) else None
+    if not isinstance(lifecycle_pat, dict):
         raise UpgradeRehearsalError(
-            "PERSONAL_CREDENTIAL_PRE_READBACK_MISSING",
-            "lifecycle personal credential was not present before revocation",
+            "PERSONAL_CREDENTIAL_FINAL_READBACK_MISSING",
+            "lifecycle personal credential was not present after browser acceptance",
         )
-    if lifecycle_pat_before.get("revokedAt") is not None:
+    if not lifecycle_pat.get("lastUsedAt") or not lifecycle_pat.get("revokedAt"):
         raise UpgradeRehearsalError(
-            "PERSONAL_CREDENTIAL_PRE_READBACK_REVOKED",
-            "lifecycle personal credential was already revoked before the final proof",
+            "PERSONAL_CREDENTIAL_IDENTITY_REVOCATION_MISSING",
+            "browser identity lifecycle did not revoke the previously used personal credential",
         )
-    pat_pre_status = _raw_mcp_initialize_status(runtime, lifecycle_pat_file)
-    if pat_pre_status != 200:
+    pat_status = _raw_mcp_initialize_status(runtime, lifecycle_pat_file)
+    if pat_status != 401:
         raise UpgradeRehearsalError(
-            f"PERSONAL_CREDENTIAL_PRE_HTTP_{pat_pre_status}",
-            "lifecycle PAT was not usable immediately before revocation",
+            "PERSONAL_CREDENTIAL_IDENTITY_REVOKED_REJECT",
+            "identity-revoked personal credential was not rejected",
         )
     service_pre_status = _raw_mcp_initialize_status(runtime, service_token_file)
     if service_pre_status != 200:
@@ -4815,11 +4865,6 @@ def _final_lifecycle_readback(
             f"SERVICE_PRE_DISABLE_HTTP_{service_pre_status}",
             "service token was not usable immediately before disable",
         )
-    api.request(
-        "DELETE",
-        api.private + f"/api/security/personal-tokens/{service_fixture['lifecyclePatId']}",
-        private=True,
-    )
     api.request(
         "DELETE",
         api.private + f"/api/security/service-accounts/{service_fixture['serviceAccountId']}",
@@ -4833,17 +4878,6 @@ def _final_lifecycle_readback(
         for item in accounts
     ):
         raise UpgradeRehearsalError("SERVICE_DISABLED_READBACK", "disabled service account was not read back")
-    pats = api.request("GET", api.private + "/api/security/personal-tokens", private=True)
-    if not isinstance(pats, list) or not any(
-        isinstance(item, dict)
-        and item.get("name") == service_fixture["lifecyclePatName"]
-        and item.get("revokedAt")
-        for item in pats
-    ):
-        raise UpgradeRehearsalError("PAT_REVOKED_READBACK", "revoked PAT was not read back")
-    pat_status = _raw_mcp_initialize_status(runtime, lifecycle_pat_file)
-    if pat_status != 401:
-        raise UpgradeRehearsalError("PAT_REVOKED_REJECT", "revoked PAT was not rejected")
     service_status = _raw_mcp_initialize_status(runtime, service_token_file)
     if service_status != 401:
         raise UpgradeRehearsalError("SERVICE_DISABLED_REJECT", "disabled service token was not rejected")
@@ -5694,6 +5728,7 @@ def execute_rehearsal(args: argparse.Namespace) -> int:
             )
         state.mark("credential.oldPatCrud", "PASS", "V1_PAT_CRUD_PASS")
         state.mark("mcp.crudIdempotencyAudit", "PASS", "MCP_CRUD_REPLAY_CONFLICT_AUDIT_PASS")
+        _pre_browser_lifecycle_probe(runtime, service_fixture)
         _run_playwright(runtime, runner, manifest_v2_path)
         _mark_many(state, (
             "compatibility.restProjectCrud", "authorization.permissionDenied",
@@ -5705,11 +5740,13 @@ def execute_rehearsal(args: argparse.Namespace) -> int:
         state.finish_phase("runtime-acceptance", "PASS", "BROWSER_REST_MCP_ACCEPTANCE_PASS")
 
         state.start_phase("lifecycle-readback")
-        _final_lifecycle_readback(runtime, credential_root, service_fixture, manifest_v2)
+        _final_lifecycle_readback(runtime, service_fixture, manifest_v2)
         assert_v2_source_identity_unchanged(runtime, git)
         state.mark("integrity.finalSource", "PASS", "FINAL_SOURCE_IDENTITY_VERIFIED")
         state.mark(
-            "lifecycle.revokedPatRejectedAndReadBack", "PASS", "REVOKED_PAT_DATABASE_READBACK_PASS"
+            "lifecycle.revokedPatRejectedAndReadBack",
+            "PASS",
+            "IDENTITY_EPOCH_CREDENTIAL_401_AND_READBACK_PASS",
         )
         state.mark(
             "lifecycle.disabledServiceRejectedAndReadBack", "PASS", "DISABLED_SERVICE_401_AND_READBACK_PASS"
