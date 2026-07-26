@@ -1484,6 +1484,15 @@ class ReleaseRuntimeAcceptanceTest(unittest.TestCase):
             '--repository-root "${CANDIDATE_VALIDATION_ROOT}"', workflow[ac40:runtime]
         )
         self.assertIn('--ac40-evidence "${AC40_EVIDENCE}"', workflow[ac07:runtime])
+        self.assertIn(
+            '--ac40-dependency-seed "${AC40_DEPENDENCY_SEED}"',
+            workflow[ac07:runtime],
+        )
+        self.assertIn(
+            '--expected-ac40-dependency-seed-sha256 '
+            '"${AC40_DEPENDENCY_SEED_SHA256}"',
+            workflow[ac07:runtime],
+        )
         self.assertIn('--app-image "${APP_REFERENCE}"', workflow[ac07:runtime])
         self.assertIn('--mysql-image "${MYSQL_REFERENCE}"', workflow[ac07:runtime])
         self.assertIn('--redis-image "${REDIS_REFERENCE}"', workflow[ac07:runtime])

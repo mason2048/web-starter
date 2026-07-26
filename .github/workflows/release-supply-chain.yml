@@ -1288,7 +1288,9 @@ jobs:
             --mysql-image "${MYSQL_REFERENCE}" \
             --redis-image "${REDIS_REFERENCE}" \
             --output-dir "${AC07_DIR}" \
-            --ac40-evidence "${AC40_EVIDENCE}"
+            --ac40-evidence "${AC40_EVIDENCE}" \
+            --ac40-dependency-seed "${AC40_DEPENDENCY_SEED}" \
+            --expected-ac40-dependency-seed-sha256 "${AC40_DEPENDENCY_SEED_SHA256}"
           python3 -B "${CANDIDATE_VALIDATION_ROOT}/scripts/validate_migration_failure_evidence.py" \
             --document "${AC07_EVIDENCE}" \
             --repository-root "${CANDIDATE_VALIDATION_ROOT}" \

@@ -1085,14 +1085,26 @@ def capture_candidate_identity(repository_root: Path = REPO_ROOT) -> CandidateId
     return CandidateIdentity(head, tree, version, source_sha256)
 
 
-def read_ac40_reference(path: Path | None) -> dict[str, object]:
+def read_ac40_reference(
+    path: Path | None,
+    dependency_seed: Path | None = None,
+    expected_dependency_seed_sha256: str | None = None,
+) -> dict[str, object]:
     if path is None:
+        if dependency_seed is not None or expected_dependency_seed_sha256 is not None:
+            raise RehearsalError(
+                "AC-40 dependency seed and trust anchor require AC-40 evidence"
+            )
         return {
             "status": "NOT_COVERED",
             "statusDetail": "AC40_EVIDENCE_NOT_SUPPLIED",
             "promotionAllowed": False,
             "reason": "No accepted V2-AC-40 PASS evidence was supplied",
         }
+    if dependency_seed is None or expected_dependency_seed_sha256 is None:
+        raise RehearsalError(
+            "AC-40 PASS validation requires dependency seed and external SHA-256 trust anchor"
+        )
     expanded = path.expanduser().absolute()
     if expanded.is_symlink() or not expanded.is_file() or expanded.stat().st_size > 1024 * 1024:
         raise RehearsalError("AC-40 evidence must be a small regular non-symlink JSON file")
@@ -1111,6 +1123,8 @@ def read_ac40_reference(path: Path | None) -> dict[str, object]:
         summary = ac40_validator.validate_document_path(
             expanded,
             repository_root=REPO_ROOT,
+            dependency_seed=dependency_seed,
+            expected_dependency_seed_sha256=expected_dependency_seed_sha256,
             require_pass=False,
         )
     except ac40_validator.EvidenceValidationError as exception:
@@ -1234,6 +1248,8 @@ def rehearse(
     timeout_seconds: int,
     infrastructure_timeout_seconds: int,
     ac40_evidence: Path | None = None,
+    ac40_dependency_seed: Path | None = None,
+    expected_ac40_dependency_seed_sha256: str | None = None,
 ) -> tuple[dict[str, object], str]:
     if timeout_seconds < 15 or timeout_seconds > 180:
         raise RehearsalError("App timeout must be between 15 and 180 seconds")
@@ -1257,7 +1273,11 @@ def rehearse(
         mysql=mysql_image.image_id,
         redis=redis_image.image_id,
     )
-    recovery = read_ac40_reference(ac40_evidence)
+    recovery = read_ac40_reference(
+        ac40_evidence,
+        ac40_dependency_seed,
+        expected_ac40_dependency_seed_sha256,
+    )
     names = resource_names(secrets.token_hex(6))
 
     runtime: AppRuntime | None = None
@@ -1480,6 +1500,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "schema, semantics, filesystem and clean Git candidate validation"
         ),
     )
+    parser.add_argument(
+        "--ac40-dependency-seed",
+        type=Path,
+        help="external AC-40 dependency seed; required with --ac40-evidence",
+    )
+    parser.add_argument(
+        "--expected-ac40-dependency-seed-sha256",
+        help=(
+            "external SHA-256 trust anchor for the AC-40 dependency seed; "
+            "required with --ac40-evidence"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -1494,6 +1526,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.timeout_seconds,
             args.infrastructure_timeout_seconds,
             args.ac40_evidence,
+            args.ac40_dependency_seed,
+            args.expected_ac40_dependency_seed_sha256,
         )
     except RehearsalError as exception:
         print(f"AC-07 rehearsal failed safely: {exception}", file=sys.stderr)

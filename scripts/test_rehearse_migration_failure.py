@@ -316,8 +316,13 @@ class MigrationFailureRehearsalTest(unittest.TestCase):
                 "status": "PASS",
                 "runtimeAcceptance": "PASS",
             }), encoding="utf-8")
-            with self.assertRaisesRegex(ac07.RehearsalError, "independent"):
+            seed = root / "dependency-seed"
+            seed.mkdir()
+            seed_sha256 = "a" * 64
+            with self.assertRaisesRegex(ac07.RehearsalError, "requires dependency seed"):
                 ac07.read_ac40_reference(evidence)
+            with self.assertRaisesRegex(ac07.RehearsalError, "requires dependency seed"):
+                ac07.read_ac40_reference(evidence, seed)
 
             summary = {
                 "status": "PASS",
@@ -331,10 +336,16 @@ class MigrationFailureRehearsalTest(unittest.TestCase):
                 "validate_document_path",
                 return_value=summary,
             ) as validator:
-                accepted = ac07.read_ac40_reference(evidence)
+                accepted = ac07.read_ac40_reference(
+                    evidence,
+                    seed,
+                    seed_sha256,
+                )
             validator.assert_called_once_with(
                 evidence.absolute(),
                 repository_root=ac07.REPO_ROOT,
+                dependency_seed=seed,
+                expected_dependency_seed_sha256=seed_sha256,
                 require_pass=False,
             )
             self.assertEqual("PASS", accepted["status"])
@@ -361,7 +372,11 @@ class MigrationFailureRehearsalTest(unittest.TestCase):
                 ),
                 self.assertRaisesRegex(ac07.RehearsalError, "changed during"),
             ):
-                ac07.read_ac40_reference(evidence)
+                ac07.read_ac40_reference(evidence, seed, seed_sha256)
+
+    def test_ac40_seed_inputs_are_rejected_without_evidence(self) -> None:
+        with self.assertRaisesRegex(ac07.RehearsalError, "require AC-40 evidence"):
+            ac07.read_ac40_reference(None, Path("/private/tmp/ac40-seed"), "a" * 64)
 
     def test_acceptance_outcome_uses_only_frozen_status_values(self) -> None:
         self.assertEqual(

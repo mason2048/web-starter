@@ -4005,9 +4005,9 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
             workflow,
         )
         self.assertEqual(2, workflow.count("--ac40-dependency-seed-provenance"))
-        self.assertEqual(3, workflow.count("--ac40-dependency-seed \""))
+        self.assertEqual(4, workflow.count("--ac40-dependency-seed \""))
         self.assertEqual(
-            3,
+            4,
             workflow.count("--expected-ac40-dependency-seed-sha256 \""),
         )
 
