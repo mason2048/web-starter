@@ -49,6 +49,7 @@ class V1SourceReviewTest(unittest.TestCase):
         self.assertEqual(
             {
                 "supplemental.operationsDocumentationReview",
+                "supplemental.projectIsolationReview",
             },
             set(validators.SOURCE_REVIEW_CHECKS),
         )
@@ -68,18 +69,62 @@ class V1SourceReviewTest(unittest.TestCase):
             operations = set(validators.source_review_paths(
                 "supplemental.operationsDocumentationReview", commit="b" * 40
             ))
+            isolation = set(validators.source_review_paths(
+                "supplemental.projectIsolationReview", commit="b" * 40
+            ))
         self.assertTrue(validators.SHARED_BOUNDARY_FIXED_PATHS <= shared)
         self.assertTrue(any(path.startswith("web-starter-mcp/src/main/java/") for path in shared))
         self.assertIn("pom.xml", forbidden)
         self.assertNotIn("web-starter-tooling/pom.xml", forbidden)
         self.assertIn("docs/deployment.md", operations)
         self.assertTrue(any("/db/migration/V1__" in path for path in operations))
+        self.assertEqual(set(tracked), isolation)
 
-    def test_three_source_semantics_pass_on_the_candidate_source(self) -> None:
+    def test_four_source_semantics_pass_on_the_candidate_source(self) -> None:
         sources = self.current_sources()
         validators._validate_shared_project_service(sources)
         validators._validate_forbidden_capabilities(sources)
         validators._validate_operations_documentation(sources)
+
+        tracked_sources = {
+            relative: (validators.REPOSITORY_ROOT / relative).read_bytes()
+            for relative in validators._tracked_candidate_files(
+                validators.REPOSITORY_ROOT,
+                validators._git(
+                    validators.REPOSITORY_ROOT, "rev-parse", "HEAD^{commit}"
+                ).decode("ascii").strip(),
+            )
+        }
+        validators._validate_project_isolation(tracked_sources)
+
+    def test_project_isolation_rejects_an_extra_business_module_or_foreign_package(self) -> None:
+        sources = {
+            relative: (validators.REPOSITORY_ROOT / relative).read_bytes()
+            for relative in validators._tracked_candidate_files(
+                validators.REPOSITORY_ROOT,
+                validators._git(
+                    validators.REPOSITORY_ROOT, "rev-parse", "HEAD^{commit}"
+                ).decode("ascii").strip(),
+            )
+        }
+        sources["copied-business/pom.xml"] = b"<project/>\n"
+        with self.assertRaisesRegex(
+            validators.SupplementalValidationError, "top-level inventory"
+        ):
+            validators._validate_project_isolation(sources)
+
+        sources.pop("copied-business/pom.xml")
+        source_path = next(
+            relative for relative in sources
+            if relative.endswith(".java") and "/src/main/java/dev/webstarter/" in relative
+        )
+        payload = sources.pop(source_path)
+        foreign_path = source_path.replace("/dev/webstarter/", "/org/example/", 1)
+        sources[foreign_path] = payload
+        with self.assertRaisesRegex(
+            validators.SupplementalValidationError, "package boundary"
+        ):
+            validators._validate_project_isolation(sources)
 
     def test_strict_blob_validation_uses_immutable_commit_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -279,7 +324,12 @@ class V1SourceReviewTest(unittest.TestCase):
                 },
             }), encoding="utf-8")
             output = temporary / "source-review"
-            observation = producer.create_bundle(root.resolve(), manifest, output)
+            with patch.object(
+                validators,
+                "SOURCE_REVIEW_CHECKS",
+                frozenset({"supplemental.operationsDocumentationReview"}),
+            ):
+                observation = producer.create_bundle(root.resolve(), manifest, output)
             archive = subprocess.run(
                 ["git", "archive", "--format=tar", commit],
                 cwd=root,

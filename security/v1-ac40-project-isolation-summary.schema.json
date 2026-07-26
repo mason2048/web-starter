@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v1-ac40-project-isolation-summary.schema.json",
+  "title": "V1 AC-40 Project Isolation Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "acceptanceIds",
+    "status",
+    "candidate",
+    "checks",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "acceptanceIds": {
+      "const": [
+        "AC-40"
+      ]
+    },
+    "status": {
+      "const": "PASS"
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree",
+        "tag",
+        "version",
+        "sourceArchiveSha256"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+        },
+        "tree": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        },
+        "sourceArchiveSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "checks": {
+      "const": {
+        "forbiddenTermScan": "PASS",
+        "projectIsolationReview": "PASS",
+        "referenceRepositoryUnchanged": "PASS",
+        "sourceIntegrity": "PASS"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forbiddenTermsSha256",
+        "forbiddenTermCount",
+        "scannedFileCount",
+        "trackedFileCount",
+        "javaSourceCount",
+        "mavenModules",
+        "sourceAggregateSha256",
+        "referenceFingerprintSha256"
+      ],
+      "properties": {
+        "forbiddenTermsSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "forbiddenTermCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scannedFileCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "trackedFileCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "javaSourceCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mavenModules": {
+          "const": [
+            "web-starter-core",
+            "web-starter-system",
+            "web-starter-security",
+            "web-starter-project",
+            "web-starter-mcp",
+            "web-starter-admin",
+            "web-starter-tooling"
+          ]
+        },
+        "sourceAggregateSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "referenceFingerprintSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

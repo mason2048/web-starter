@@ -30,11 +30,13 @@ ARTIFACT_NAMES = {
     "supplemental.sharedProjectServiceBoundary": "shared-project-service-boundary.json",
     "supplemental.forbiddenCapabilitySourceScan": "forbidden-capability-source-scan.json",
     "supplemental.operationsDocumentationReview": "operations-documentation-review.json",
+    "supplemental.projectIsolationReview": "project-isolation-review.json",
 }
 ARTIFACT_IDS = {
     "supplemental.sharedProjectServiceBoundary": "shared-service-boundary",
     "supplemental.forbiddenCapabilitySourceScan": "forbidden-capability-scan",
     "supplemental.operationsDocumentationReview": "operations-doc-review",
+    "supplemental.projectIsolationReview": "project-isolation-review",
 }
 VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$")
 DIGEST_REFERENCE = re.compile(r"^[^\s@]+@sha256:[0-9a-f]{64}$")

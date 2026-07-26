@@ -40,6 +40,7 @@ import validate_redis_loss_evidence as redis_loss_evidence
 import validate_release_runtime_test_reports_proof as release_runtime_test_reports
 import validate_tooling_lifecycle_evidence as tooling_lifecycle_evidence
 import validate_v1_operations_documentation_proof as v1_operations_documentation
+import validate_v1_project_isolation_evidence as v1_project_isolation
 import validate_v1_source_provenance_proof as v1_source_provenance
 import validate_v1_upgrade_evidence as v1_upgrade_evidence
 import validate_credential_lifecycle_evidence as credential_lifecycle_evidence
@@ -176,6 +177,7 @@ INDEPENDENTLY_VERIFIED_ACCEPTANCE_BINDINGS: dict[str, tuple[str, ...]] = {
         "releaseRuntimeAcceptance",
     ),
     "AC-39": ("unifiedVerify", "productionFailFastRehearsal"),
+    "AC-40": ("v1ProjectIsolationSummary",),
     "AC-41": ("unifiedVerify",),
     "AC-42": ("generatorAcceptanceSummary",),
     "V2-AC-01": ("v1SourceProvenanceSummary",),
@@ -1386,6 +1388,136 @@ def _collect_v1_operations_documentation_proof(
     ):
         raise EvidenceError(
             "V1 AC-38 canonical summary differs from independently recomputed evidence"
+        )
+    return {
+        "path": _relative(artifact, artifacts_root),
+        "sha256": hashlib.sha256(expected_payload).hexdigest(),
+        "status": "PASS",
+    }
+
+
+def _collect_v1_project_isolation_evidence(
+    *,
+    forbidden_terms_path: Path | None,
+    reference_repository_path: Path | None,
+    artifact_path: Path | None,
+    repository_root: Path,
+    artifacts_root: Path,
+    tag: str,
+    version: str,
+    commit: str,
+) -> dict[str, str] | None:
+    supplied = (forbidden_terms_path, reference_repository_path, artifact_path)
+    if all(value is None for value in supplied):
+        return None
+    if any(value is None for value in supplied):
+        raise EvidenceError(
+            "V1 AC-40 verification requires external forbidden terms, "
+            "the reference repository, and the canonical summary"
+        )
+    assert forbidden_terms_path is not None
+    assert reference_repository_path is not None
+    assert artifact_path is not None
+    try:
+        summary = v1_project_isolation.evaluate(
+            repository_root=repository_root,
+            forbidden_terms_path=forbidden_terms_path,
+            reference_repository=reference_repository_path,
+            expected_candidate_commit=commit,
+            expected_candidate_tag=tag,
+            expected_candidate_version=version,
+        )
+        expected_payload = v1_project_isolation.canonical_summary_bytes(summary)
+    except (
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        v1_project_isolation.ProjectIsolationEvidenceError,
+        ValueError,
+    ) as exception:
+        raise EvidenceError(
+            "V1 AC-40 project-isolation evidence is not independently PASS"
+        ) from exception
+    expected_candidate = {
+        "commit": commit,
+        "tree": summary.get("candidate", {}).get("tree"),
+        "tag": tag,
+        "version": version,
+        "sourceArchiveSha256": summary.get("candidate", {}).get(
+            "sourceArchiveSha256"
+        ),
+    }
+    evidence = summary.get("evidence")
+    if (
+        summary.get("schemaVersion") != 1
+        or summary.get("acceptanceIds") != ["AC-40"]
+        or summary.get("status") != "PASS"
+        or summary.get("candidate") != expected_candidate
+        or not isinstance(expected_candidate["tree"], str)
+        or COMMIT.fullmatch(expected_candidate["tree"]) is None
+        or not isinstance(expected_candidate["sourceArchiveSha256"], str)
+        or SHA256.fullmatch(expected_candidate["sourceArchiveSha256"]) is None
+        or summary.get("checks")
+        != {
+            "forbiddenTermScan": "PASS",
+            "projectIsolationReview": "PASS",
+            "referenceRepositoryUnchanged": "PASS",
+            "sourceIntegrity": "PASS",
+        }
+        or not isinstance(evidence, dict)
+        or set(evidence)
+        != {
+            "forbiddenTermsSha256",
+            "forbiddenTermCount",
+            "scannedFileCount",
+            "trackedFileCount",
+            "javaSourceCount",
+            "mavenModules",
+            "sourceAggregateSha256",
+            "referenceFingerprintSha256",
+        }
+        or any(
+            not isinstance(evidence.get(field), str)
+            or SHA256.fullmatch(evidence[field]) is None
+            for field in (
+                "forbiddenTermsSha256",
+                "sourceAggregateSha256",
+                "referenceFingerprintSha256",
+            )
+        )
+        or any(
+            isinstance(evidence.get(field), bool)
+            or not isinstance(evidence.get(field), int)
+            or evidence[field] <= 0
+            for field in (
+                "forbiddenTermCount",
+                "scannedFileCount",
+                "trackedFileCount",
+                "javaSourceCount",
+            )
+        )
+        or evidence.get("scannedFileCount") != evidence.get("trackedFileCount")
+        or evidence.get("mavenModules")
+        != list(v1_project_isolation.source_validators.EXPECTED_MAVEN_MODULES)
+    ):
+        raise EvidenceError(
+            "V1 AC-40 canonical semantics differ from the frozen contract"
+        )
+    artifact = _safe_file(
+        artifact_path,
+        artifacts_root,
+        "V1 AC-40 project-isolation canonical summary",
+    )
+    metadata = artifact.stat()
+    if (
+        artifact.name != v1_project_isolation.SUMMARY_NAME
+        or stat.S_IMODE(metadata.st_mode) != 0o600
+        or metadata.st_uid != os.geteuid()
+        or metadata.st_nlink != 1
+        or artifact.read_bytes() != expected_payload
+    ):
+        raise EvidenceError(
+            "V1 AC-40 canonical summary differs from independently recomputed evidence"
         )
     return {
         "path": _relative(artifact, artifacts_root),
@@ -3058,6 +3190,9 @@ def build_ledger(
     v1_source_provenance_summary_artifact_path: Path | None = None,
     v1_operations_documentation_proof_path: Path | None = None,
     v1_operations_documentation_summary_artifact_path: Path | None = None,
+    v1_project_isolation_forbidden_terms_path: Path | None = None,
+    v1_project_isolation_reference_repository_path: Path | None = None,
+    v1_project_isolation_summary_artifact_path: Path | None = None,
     release_runtime_test_reports_directory_path: Path | None = None,
     release_runtime_test_reports_summary_artifact_path: Path | None = None,
     project_transport_parity_proof_path: Path | None = None,
@@ -3174,6 +3309,16 @@ def build_ledger(
     v1_operations_documentation_input = _collect_v1_operations_documentation_proof(
         proof_path=v1_operations_documentation_proof_path,
         artifact_path=v1_operations_documentation_summary_artifact_path,
+        repository_root=candidate_validation_root,
+        artifacts_root=artifacts_root,
+        tag=tag,
+        version=version,
+        commit=commit,
+    )
+    v1_project_isolation_input = _collect_v1_project_isolation_evidence(
+        forbidden_terms_path=v1_project_isolation_forbidden_terms_path,
+        reference_repository_path=v1_project_isolation_reference_repository_path,
+        artifact_path=v1_project_isolation_summary_artifact_path,
         repository_root=candidate_validation_root,
         artifacts_root=artifacts_root,
         tag=tag,
@@ -3351,6 +3496,8 @@ def build_ledger(
         verified_inputs["v1OperationsDocumentationSummary"] = (
             v1_operations_documentation_input
         )
+    if v1_project_isolation_input is not None:
+        verified_inputs["v1ProjectIsolationSummary"] = v1_project_isolation_input
     if release_runtime_test_reports_input is not None:
         verified_inputs["releaseRuntimeTestReports"] = release_runtime_test_reports_input
     if project_transport_parity_input is not None:
@@ -3404,6 +3551,9 @@ def build_ledger(
             repository_root / "scripts/create_v1_operations_documentation_proof.py",
             repository_root / "scripts/validate_v1_operations_documentation_proof.py",
             repository_root / "security/v1-ac38-operations-documentation-summary.schema.json",
+            repository_root / "scripts/v1_regression_supplemental_validators.py",
+            repository_root / "scripts/validate_v1_project_isolation_evidence.py",
+            repository_root / "security/v1-ac40-project-isolation-summary.schema.json",
             repository_root / "scripts/release_security_gate.py",
             repository_root / "scripts/release_trivy.py",
             repository_root / "scripts/build_v1_upgrade_dependency_seed.py",
@@ -3587,6 +3737,8 @@ def verify_ledger(
     commit: str,
     v1_source_provenance_proof_path: Path | None = None,
     v1_operations_documentation_proof_path: Path | None = None,
+    v1_project_isolation_forbidden_terms_path: Path | None = None,
+    v1_project_isolation_reference_repository_path: Path | None = None,
     release_runtime_test_reports_directory_path: Path | None = None,
     project_transport_parity_proof_path: Path | None = None,
     migration_failure_evidence_path: Path | None = None,
@@ -3649,6 +3801,27 @@ def verify_ledger(
         raise EvidenceError(
             "V1 AC-38 operations documentation proof must be explicitly supplied "
             "for verification"
+        )
+    v1_project_isolation_input = inputs.get("v1ProjectIsolationSummary")
+    if (
+        v1_project_isolation_forbidden_terms_path is not None
+        and v1_project_isolation_reference_repository_path is not None
+    ):
+        v1_project_isolation_input = _require_object(
+            v1_project_isolation_input,
+            "V1 AC-40 project-isolation summary input",
+        )
+    elif (
+        v1_project_isolation_forbidden_terms_path is not None
+        or v1_project_isolation_reference_repository_path is not None
+    ):
+        raise EvidenceError(
+            "V1 AC-40 verification requires both external forbidden terms "
+            "and the reference repository"
+        )
+    elif v1_project_isolation_input is not None:
+        raise EvidenceError(
+            "V1 AC-40 external inputs must be explicitly supplied for verification"
         )
     release_runtime_test_reports_input = inputs.get("releaseRuntimeTestReports")
     if release_runtime_test_reports_input is not None:
@@ -3761,6 +3934,17 @@ def verify_ledger(
         v1_operations_documentation_summary_artifact_path=(
             Path(str(v1_operations_documentation_input.get("path", "")))
             if v1_operations_documentation_input is not None
+            else None
+        ),
+        v1_project_isolation_forbidden_terms_path=(
+            v1_project_isolation_forbidden_terms_path
+        ),
+        v1_project_isolation_reference_repository_path=(
+            v1_project_isolation_reference_repository_path
+        ),
+        v1_project_isolation_summary_artifact_path=(
+            Path(str(v1_project_isolation_input.get("path", "")))
+            if v1_project_isolation_input is not None
             else None
         ),
         release_runtime_test_reports_directory_path=(
@@ -3904,6 +4088,9 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--v1-source-provenance-summary-artifact", type=Path)
     build.add_argument("--v1-operations-documentation-proof", type=Path)
     build.add_argument("--v1-operations-documentation-summary-artifact", type=Path)
+    build.add_argument("--v1-project-isolation-forbidden-terms", type=Path)
+    build.add_argument("--v1-project-isolation-reference-repository", type=Path)
+    build.add_argument("--v1-project-isolation-summary-artifact", type=Path)
     build.add_argument("--release-runtime-test-reports-directory", type=Path)
     build.add_argument("--release-runtime-test-reports-summary-artifact", type=Path)
     build.add_argument("--project-transport-parity-proof", type=Path)
@@ -3954,6 +4141,8 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--manifest", required=True, type=Path)
     verify.add_argument("--v1-source-provenance-proof", type=Path)
     verify.add_argument("--v1-operations-documentation-proof", type=Path)
+    verify.add_argument("--v1-project-isolation-forbidden-terms", type=Path)
+    verify.add_argument("--v1-project-isolation-reference-repository", type=Path)
     verify.add_argument("--release-runtime-test-reports-directory", type=Path)
     verify.add_argument("--project-transport-parity-proof", type=Path)
     verify.add_argument("--migration-failure-evidence", type=Path)
@@ -4009,6 +4198,15 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 v1_operations_documentation_summary_artifact_path=(
                     args.v1_operations_documentation_summary_artifact
+                ),
+                v1_project_isolation_forbidden_terms_path=(
+                    args.v1_project_isolation_forbidden_terms
+                ),
+                v1_project_isolation_reference_repository_path=(
+                    args.v1_project_isolation_reference_repository
+                ),
+                v1_project_isolation_summary_artifact_path=(
+                    args.v1_project_isolation_summary_artifact
                 ),
                 release_runtime_test_reports_directory_path=(
                     args.release_runtime_test_reports_directory
@@ -4089,6 +4287,12 @@ def main(argv: list[str] | None = None) -> int:
                 v1_source_provenance_proof_path=args.v1_source_provenance_proof,
                 v1_operations_documentation_proof_path=(
                     args.v1_operations_documentation_proof
+                ),
+                v1_project_isolation_forbidden_terms_path=(
+                    args.v1_project_isolation_forbidden_terms
+                ),
+                v1_project_isolation_reference_repository_path=(
+                    args.v1_project_isolation_reference_repository
                 ),
                 release_runtime_test_reports_directory_path=(
                     args.release_runtime_test_reports_directory

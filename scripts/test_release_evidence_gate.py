@@ -143,6 +143,39 @@ def v1_source_provenance_summary() -> dict:
     }
 
 
+def v1_project_isolation_summary() -> dict:
+    return {
+        "schemaVersion": 1,
+        "acceptanceIds": ["AC-40"],
+        "status": "PASS",
+        "candidate": {
+            "commit": COMMIT,
+            "tree": "d" * 40,
+            "tag": TAG,
+            "version": VERSION,
+            "sourceArchiveSha256": "e" * 64,
+        },
+        "checks": {
+            "forbiddenTermScan": "PASS",
+            "projectIsolationReview": "PASS",
+            "referenceRepositoryUnchanged": "PASS",
+            "sourceIntegrity": "PASS",
+        },
+        "evidence": {
+            "forbiddenTermsSha256": "1" * 64,
+            "forbiddenTermCount": 4,
+            "scannedFileCount": 420,
+            "trackedFileCount": 420,
+            "javaSourceCount": 180,
+            "mavenModules": list(
+                gate.v1_project_isolation.source_validators.EXPECTED_MAVEN_MODULES
+            ),
+            "sourceAggregateSha256": "2" * 64,
+            "referenceFingerprintSha256": "3" * 64,
+        },
+    }
+
+
 def release_runtime_test_reports_summary() -> dict:
     specs = sorted(
         (
@@ -914,6 +947,7 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
                     "AC-37",
                     "AC-38",
                     "AC-39",
+                    "AC-40",
                     "AC-41",
                     "AC-42",
                     "V2-AC-01",
@@ -1380,7 +1414,7 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
             with self.assertRaisesRegex(gate.EvidenceError, "artifact evidence checksum"):
                 fixture.build()
 
-    def test_hash_valid_unregistered_pass_fails_even_when_git_verification_is_disabled(self) -> None:
+    def test_hash_valid_ac40_pass_without_independent_inputs_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixture = EvidenceFixture(Path(directory))
             forged = fixture.artifacts / "acceptance/forged-pass.json"
@@ -1398,9 +1432,99 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 gate.EvidenceError,
-                "AC-40 PASS is not registered for independent semantic verification",
+                "AC-40 independently verified artifact v1ProjectIsolationSummary must be an object",
             ):
                 fixture.build()
+
+    def test_ac40_recomputes_external_inputs_and_binds_only_exact_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifacts = root / "artifacts"
+            artifacts.mkdir()
+            artifact = artifacts / gate.v1_project_isolation.SUMMARY_NAME
+            summary = v1_project_isolation_summary()
+            write_canonical_private_json(artifact, summary)
+            forbidden_terms = root / "forbidden-terms.txt"
+            reference = root / "reference"
+            write(forbidden_terms, "External Business Term\n")
+            forbidden_terms.chmod(0o600)
+            reference.mkdir()
+
+            with mock.patch.object(
+                gate.v1_project_isolation,
+                "evaluate",
+                return_value=summary,
+            ) as validator:
+                bound = gate._collect_v1_project_isolation_evidence(
+                    forbidden_terms_path=forbidden_terms,
+                    reference_repository_path=reference,
+                    artifact_path=artifact,
+                    repository_root=root,
+                    artifacts_root=artifacts,
+                    tag=TAG,
+                    version=VERSION,
+                    commit=COMMIT,
+                )
+            self.assertEqual(
+                {
+                    "path": gate.v1_project_isolation.SUMMARY_NAME,
+                    "sha256": hashlib.sha256(
+                        gate.v1_project_isolation.canonical_summary_bytes(summary)
+                    ).hexdigest(),
+                    "status": "PASS",
+                },
+                bound,
+            )
+            validator.assert_called_once_with(
+                repository_root=root,
+                forbidden_terms_path=forbidden_terms,
+                reference_repository=reference,
+                expected_candidate_commit=COMMIT,
+                expected_candidate_tag=TAG,
+                expected_candidate_version=VERSION,
+            )
+
+            artifact.write_text('{"status":"PASS"}\n', encoding="utf-8")
+            artifact.chmod(0o600)
+            with (
+                mock.patch.object(
+                    gate.v1_project_isolation,
+                    "evaluate",
+                    return_value=summary,
+                ),
+                self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    "canonical summary differs from independently recomputed evidence",
+                ),
+            ):
+                gate._collect_v1_project_isolation_evidence(
+                    forbidden_terms_path=forbidden_terms,
+                    reference_repository_path=reference,
+                    artifact_path=artifact,
+                    repository_root=root,
+                    artifacts_root=artifacts,
+                    tag=TAG,
+                    version=VERSION,
+                    commit=COMMIT,
+                )
+
+    def test_ac40_requires_all_external_inputs_as_one_atomic_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "requires external forbidden terms, the reference repository",
+            ):
+                gate._collect_v1_project_isolation_evidence(
+                    forbidden_terms_path=root / "terms.txt",
+                    reference_repository_path=None,
+                    artifact_path=None,
+                    repository_root=root,
+                    artifacts_root=root,
+                    tag=TAG,
+                    version=VERSION,
+                    commit=COMMIT,
+                )
 
     def test_registered_pass_still_requires_the_registered_artifact_semantics(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -3883,6 +4007,10 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
         )
         self.assertIn(
             "v1SourceProvenanceSummary",
+            release_schema["properties"]["inputs"]["properties"],
+        )
+        self.assertIn(
+            "v1ProjectIsolationSummary",
             release_schema["properties"]["inputs"]["properties"],
         )
         self.assertIn(

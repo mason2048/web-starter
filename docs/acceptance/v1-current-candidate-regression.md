@@ -104,7 +104,7 @@ python3 -B scripts/run_v1_candidate_regression.py \
 
 现有 release runner 的正式检查只映射到它们直接证明的原子条件。`runtimeVersionIdentity` 还必须证明 Java 21、Actuator 应用/构建版本、实际 App/Nginx/MySQL/Redis digest reference 与 image ID，以及 App/Nginx 两组 OCI version/revision 都精确匹配候选的正式 tag、version 和 commit。例如，`oauthPkce` 不能单独证明 access token 的过期与吊销，浏览器 Project CRUD 不能单独证明全部用户、角色和菜单矩阵。剩余条件只能由**明确写入源码注册表并有独立语义校验器**的补充 producer 提供，索引格式遵循 [`v1-regression-observation.schema.json`](../../security/v1-regression-observation.schema.json)，artifact 公共信封遵循 [`v1-regression-supplemental-artifact.schema.json`](../../security/v1-regression-supplemental-artifact.schema.json)。
 
-当前 `scripts/v1_regression_supplemental_validators.py` 只注册固定 producer `candidate-source-review`，并只独立重算 `supplemental.operationsDocumentationReview`。共享 ProjectService 边界不使用字符串出现次数：正式发布另行执行固定 `ProjectTransportParityIT`，验证 Spring 中 REST/MCP 三个适配器持有同一个真实 `ProjectServiceImpl` Bean，并扫描 MCP 生产字节码不存在 Project Mapper/持久层引用；其 raw Surefire XML 与 properties 由 `validate_project_transport_parity_proof.py` 独立重算，形成 AC-15 专用 canonical 摘要。禁止 Tool 则继续由真实官方 SDK 对精确七 Tool 的协议发现证明；其他 supplemental 条件仍保持 `NOT_COVERED`。任何新增 adapter 都必须在源码中同时固定 producer、允许的 check 集合和专用 validator；不能通过 CLI、环境变量或观察包动态注册。
+当前 `scripts/v1_regression_supplemental_validators.py` 只注册固定 producer `candidate-source-review`，并独立重算 `supplemental.operationsDocumentationReview` 与 `supplemental.projectIsolationReview`。项目隔离审查固定顶层 tracked inventory、根 Maven 模块顺序、各模块 artifact/source 边界、前端 package 名和全部 Java 源码的 `dev.webstarter` 包路径；增加业务模块、外来 Java 包或改写工程身份都会失败。共享 ProjectService 边界不使用字符串出现次数：正式发布另行执行固定 `ProjectTransportParityIT`，验证 Spring 中 REST/MCP 三个适配器持有同一个真实 `ProjectServiceImpl` Bean，并扫描 MCP 生产字节码不存在 Project Mapper/持久层引用；其 raw Surefire XML 与 properties 由 `validate_project_transport_parity_proof.py` 独立重算，形成 AC-15 专用 canonical 摘要。禁止 Tool 则继续由真实官方 SDK 对精确七 Tool 的协议发现证明；其他 supplemental 条件仍保持 `NOT_COVERED`。任何新增 adapter 都必须在源码中同时固定 producer、允许的 check 集合和专用 validator；不能通过 CLI、环境变量或观察包动态注册。
 
 正式候选可用下列 producer 在仓库外生成无状态结论的私有观察包，再把返回的索引文件作为 `run_v1_candidate_regression.py --observation` 输入。候选必须是 clean、非 `SNAPSHOT`、带注释 tag，并与不可变镜像清单绑定；输出目录必须尚不存在，目录权限为 `0700`、文件为 `0600`。
 
@@ -115,9 +115,11 @@ python3 -B scripts/create_v1_source_review_observation.py \
   --output-directory /absolute/private/v1-source-review
 ```
 
-该观察包只记录候选 commit 中的源文件 blob 与 SHA-256，不写 `PASS`。独立 validator 会重新读取同一候选、校验 clean commit/tree/archive、注释 tag、非 `SNAPSHOT` 版本和逐文件字节，再重算运维文档与 Flyway 序列条件。它不能替代登录、浏览器、OAuth、MCP、数据库或恢复运行验收，也不能让包含这些条件的整项 AC 自动通过。
+该观察包只记录候选 commit 中的源文件 blob 与 SHA-256，不写 `PASS`。独立 validator 会重新读取同一候选、校验 clean commit/tree/archive、注释 tag、非 `SNAPSHOT` 版本和逐文件字节，再重算运维文档、Flyway 序列和固定工程结构。它不能替代登录、浏览器、OAuth、MCP、数据库或恢复运行验收，也不能让包含这些条件的整项 AC 自动通过。
 
-下列目录与 JSON 只是未注册 producer 的通用信封示例，用来说明 schema；示例中的 `browser-acceptance` 当前不能产生 `PASS`。已注册的源码观察包使用上面的固定 producer，并只包含运维文档审查 artifact。
+V1 回归账本中的 AC-40 只有在三个条件同时通过时才能成为 `PASS`：仓库外注入的禁用业务词扫描零命中、外部参考仓库执行前后指纹相同，以及上述项目隔离语义审查通过。源码观察包单独不能证明前两个外部事实。正式 `release_evidence_gate.py` 已注册专用 `v1ProjectIsolationSummary` 绑定，但仍会现场读取受保护的禁用词和参考仓库重新计算，不能只导入回归账本或自报 `PASS`。完整合同见[工程隔离证据](../v1-project-isolation-evidence.md)。
+
+下列目录与 JSON 只是未注册 producer 的通用信封示例，用来说明 schema；示例中的 `browser-acceptance` 当前不能产生 `PASS`。已注册的源码观察包使用上面的固定 producer，并只包含运维文档与项目隔离两类源码审查 artifact。
 
 ```text
 generic-observation-bundle/

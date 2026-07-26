@@ -583,6 +583,62 @@ jobs:
         working-directory: web-starter-web
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Require protected V1 reference-repository inputs
+        shell: bash
+        env:
+          REFERENCE_REPOSITORY: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY }}
+          REFERENCE_COMMIT: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
+          REFERENCE_TOKEN: ${{ secrets.WEB_STARTER_REFERENCE_REPOSITORY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${REFERENCE_REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "WEB_STARTER_REFERENCE_REPOSITORY must be a protected owner/repository value" >&2
+            exit 1
+          fi
+          if [[ ! "${REFERENCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "WEB_STARTER_REFERENCE_REPOSITORY_COMMIT must be a protected full SHA-1" >&2
+            exit 1
+          fi
+          if [[ -z "${REFERENCE_TOKEN}" ]]; then
+            echo "WEB_STARTER_REFERENCE_REPOSITORY_TOKEN must be a protected read-only token" >&2
+            exit 1
+          fi
+
+      - name: Checkout the protected V1 reference repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY }}
+          ref: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
+          token: ${{ secrets.WEB_STARTER_REFERENCE_REPOSITORY_TOKEN }}
+          path: .release-reference-repository
+          fetch-depth: 1
+          fetch-tags: false
+          lfs: false
+          submodules: false
+          persist-credentials: false
+
+      - name: Verify the protected V1 reference checkout
+        shell: bash
+        env:
+          REFERENCE_COMMIT: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
+        run: |
+          set -euo pipefail
+          reference_root="${GITHUB_WORKSPACE}/.release-reference-repository"
+          if [[ -L "${reference_root}" || ! -d "${reference_root}" ]]; then
+            echo "reference repository checkout is not a real directory" >&2
+            exit 1
+          fi
+          if [[ "$(git -C "${reference_root}" rev-parse --show-toplevel)" != "${reference_root}" || \
+                "$(git -C "${reference_root}" rev-parse HEAD^{commit})" != "${REFERENCE_COMMIT}" ]]; then
+            echo "reference repository checkout differs from the protected commit" >&2
+            exit 1
+          fi
+          if [[ -n "$(git -C "${reference_root}" status --porcelain=v1 --untracked-files=all)" || \
+                -n "$(git -C "${reference_root}" ls-files --stage | awk '$1 == "160000" {print $0}')" ]]; then
+            echo "reference repository must be clean and contain no Git links" >&2
+            exit 1
+          fi
+
       - name: Prepare private recovery evidence directories
         id: recovery
         shell: bash
@@ -849,6 +905,24 @@ jobs:
             --expected-candidate-tag "${RELEASE_TAG}" \
             --expected-candidate-version "${RELEASE_VERSION}" \
             --summary-output artifacts/acceptance/v1-ac38-operations-documentation-summary.json
+
+      - name: Independently evaluate V1 AC-40 project isolation
+        shell: bash
+        env:
+          CANDIDATE_VALIDATION_ROOT: ${{ steps.recovery.outputs.candidate_validation_root }}
+          FORBIDDEN_TERMS: ${{ steps.recovery.outputs.generator_forbidden_terms }}
+          REFERENCE_REPOSITORY: ${{ github.workspace }}/.release-reference-repository
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 -B "${CANDIDATE_VALIDATION_ROOT}/scripts/validate_v1_project_isolation_evidence.py" \
+            --repository-root "${CANDIDATE_VALIDATION_ROOT}" \
+            --forbidden-terms "${FORBIDDEN_TERMS}" \
+            --reference-repository "${REFERENCE_REPOSITORY}" \
+            --expected-candidate-commit "${GITHUB_SHA}" \
+            --expected-candidate-tag "${RELEASE_TAG}" \
+            --expected-candidate-version "${RELEASE_VERSION}" \
+            --summary-output artifacts/acceptance/v1-ac40-project-isolation-summary.json
 
       - name: Produce and independently validate V1 AC-15 transport parity
         shell: bash
@@ -1518,6 +1592,8 @@ jobs:
           TOOLING_COMPOSE_PROJECT: web-starter-tooling-${{ github.run_id }}-${{ github.run_attempt }}
           GENERATOR_ACCEPTANCE_BUNDLE: ${{ steps.recovery.outputs.generator_acceptance_bundle }}
           GENERATOR_FORBIDDEN_TERMS: ${{ steps.recovery.outputs.generator_forbidden_terms }}
+          V1_PROJECT_ISOLATION_FORBIDDEN_TERMS: ${{ steps.recovery.outputs.generator_forbidden_terms }}
+          V1_PROJECT_ISOLATION_REFERENCE_REPOSITORY: ${{ github.workspace }}/.release-reference-repository
           V1_SOURCE_PROOF: ${{ steps.recovery.outputs.v1_source_evidence }}
           V1_OPERATIONS_PROOF: ${{ steps.recovery.outputs.v1_operations_proof }}
           PROJECT_TRANSPORT_PROOF: ${{ steps.recovery.outputs.project_transport_proof }}
@@ -1541,6 +1617,9 @@ jobs:
             --v1-source-provenance-summary-artifact artifacts/acceptance/v2-ac01-v1-source-provenance-summary.json \
             --v1-operations-documentation-proof "${V1_OPERATIONS_PROOF}" \
             --v1-operations-documentation-summary-artifact artifacts/acceptance/v1-ac38-operations-documentation-summary.json \
+            --v1-project-isolation-forbidden-terms "${V1_PROJECT_ISOLATION_FORBIDDEN_TERMS}" \
+            --v1-project-isolation-reference-repository "${V1_PROJECT_ISOLATION_REFERENCE_REPOSITORY}" \
+            --v1-project-isolation-summary-artifact artifacts/acceptance/v1-ac40-project-isolation-summary.json \
             --release-runtime-test-reports-directory "${RELEASE_RUNTIME_TEST_REPORTS_DIR}" \
             --release-runtime-test-reports-summary-artifact artifacts/acceptance/release-runtime-test-reports-summary.json \
             --project-transport-parity-proof "${PROJECT_TRANSPORT_PROOF}" \
@@ -1590,6 +1669,8 @@ jobs:
             --candidate-validation-root "${CANDIDATE_VALIDATION_ROOT}" \
             --v1-source-provenance-proof "${V1_SOURCE_PROOF}" \
             --v1-operations-documentation-proof "${V1_OPERATIONS_PROOF}" \
+            --v1-project-isolation-forbidden-terms "${V1_PROJECT_ISOLATION_FORBIDDEN_TERMS}" \
+            --v1-project-isolation-reference-repository "${V1_PROJECT_ISOLATION_REFERENCE_REPOSITORY}" \
             --release-runtime-test-reports-directory "${RELEASE_RUNTIME_TEST_REPORTS_DIR}" \
             --project-transport-parity-proof "${PROJECT_TRANSPORT_PROOF}" \
             --migration-failure-evidence "${AC07_EVIDENCE}" \

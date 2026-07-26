@@ -1173,6 +1173,18 @@ class ReleaseRuntimeAcceptanceTest(unittest.TestCase):
             "AC40_DEPENDENCY_SEED_SHA256: ${{ steps.release_environment.outputs.seed_sha256 }}",
             '--dependency-seed "${AC40_DEPENDENCY_SEED}"',
             '--expected-dependency-seed-sha256 "${AC40_DEPENDENCY_SEED_SHA256}"',
+            "Require protected V1 reference-repository inputs",
+            "WEB_STARTER_REFERENCE_REPOSITORY",
+            "WEB_STARTER_REFERENCE_REPOSITORY_COMMIT",
+            "WEB_STARTER_REFERENCE_REPOSITORY_TOKEN",
+            "Checkout the protected V1 reference repository",
+            "path: .release-reference-repository",
+            "persist-credentials: false",
+            "Independently evaluate V1 AC-40 project isolation",
+            "validate_v1_project_isolation_evidence.py",
+            "--v1-project-isolation-forbidden-terms",
+            "--v1-project-isolation-reference-repository",
+            "--v1-project-isolation-summary-artifact",
         )
         for fragment in required:
             self.assertIn(fragment, workflow)

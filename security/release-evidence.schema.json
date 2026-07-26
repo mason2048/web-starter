@@ -87,6 +87,7 @@
         "releaseRuntimeAcceptance": {"$ref": "#/$defs/securityGateFile"},
         "unifiedVerify": {"$ref": "#/$defs/securityGateFile"},
         "v1SourceProvenanceSummary": {"$ref": "#/$defs/securityGateFile"},
+        "v1ProjectIsolationSummary": {"$ref": "#/$defs/securityGateFile"},
         "releaseRuntimeTestReports": {"$ref": "#/$defs/securityGateFile"},
         "v1ProjectTransportParitySummary": {"$ref": "#/$defs/securityGateFile"},
         "jwksRotationSummary": {"$ref": "#/$defs/securityGateFile"},

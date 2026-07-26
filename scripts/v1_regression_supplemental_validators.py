@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
 import subprocess
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
+import xml.etree.ElementTree as ET
 
 
 ALLOWED_RESULTS = frozenset({"PASS", "FAIL", "NOT_COVERED", "ENV_REQUIRED"})
@@ -26,6 +28,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_REVIEW_PRODUCER = "candidate-source-review"
 SOURCE_REVIEW_CHECKS = frozenset({
     "supplemental.operationsDocumentationReview",
+    "supplemental.projectIsolationReview",
 })
 SOURCE_BLOB_FIELDS = frozenset({"gitBlob", "sha256"})
 GIT_OBJECT = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
@@ -59,6 +62,48 @@ OPERATIONS_REVIEW_PATHS = frozenset({
     "scripts/rehearse_v1_to_v2_upgrade.py",
     "compose.production.yaml",
 })
+EXPECTED_TOP_LEVEL_ENTRIES = frozenset({
+    ".dockerignore",
+    ".editorconfig",
+    ".env.example",
+    ".gitattributes",
+    ".github",
+    ".gitignore",
+    ".mvn",
+    "AGENTS.md",
+    "Dockerfile",
+    "README.md",
+    "bin",
+    "compose.dev.yaml",
+    "compose.production.yaml",
+    "compose.public-mcp.yaml",
+    "compose.yaml",
+    "deploy",
+    "docs",
+    "mvnw",
+    "mvnw.cmd",
+    "pom.xml",
+    "scripts",
+    "security",
+    "web-starter-admin",
+    "web-starter-core",
+    "web-starter-mcp",
+    "web-starter-project",
+    "web-starter-security",
+    "web-starter-system",
+    "web-starter-tooling",
+    "web-starter-web",
+})
+EXPECTED_MAVEN_MODULES = (
+    "web-starter-core",
+    "web-starter-system",
+    "web-starter-security",
+    "web-starter-project",
+    "web-starter-mcp",
+    "web-starter-admin",
+    "web-starter-tooling",
+)
+MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 
 class SupplementalValidationError(ValueError):
@@ -177,6 +222,8 @@ def source_review_paths(
                 path,
             )
         )
+    elif check == "supplemental.projectIsolationReview":
+        paths = set(tracked)
     else:
         raise SupplementalValidationError("source-review check is not registered")
     for relative in paths:
@@ -389,6 +436,69 @@ def _validate_operations_documentation(sources: Mapping[str, bytes]) -> None:
         raise SupplementalValidationError("recovery documentation is stale relative to Flyway")
 
 
+def _xml_root(sources: Mapping[str, bytes], relative: str) -> ET.Element:
+    try:
+        return ET.fromstring(sources[relative])
+    except (KeyError, ET.ParseError) as exception:
+        raise SupplementalValidationError(f"project-isolation POM is invalid: {relative}") from exception
+
+
+def _validate_project_isolation(sources: Mapping[str, bytes]) -> None:
+    paths = set(sources)
+    top_level = {relative.split("/", 1)[0] for relative in paths}
+    if top_level != EXPECTED_TOP_LEVEL_ENTRIES:
+        raise SupplementalValidationError("candidate top-level inventory is not the fixed generic scaffold")
+
+    root_pom = _xml_root(sources, "pom.xml")
+    modules = tuple(
+        element.text.strip()
+        for element in root_pom.findall("m:modules/m:module", MAVEN_NAMESPACE)
+        if isinstance(element.text, str) and element.text.strip()
+    )
+    if modules != EXPECTED_MAVEN_MODULES:
+        raise SupplementalValidationError("root Maven module inventory is not the fixed generic scaffold")
+    root_artifact = root_pom.find("m:artifactId", MAVEN_NAMESPACE)
+    if root_artifact is None or root_artifact.text != "web-starter":
+        raise SupplementalValidationError("root Maven artifact identity is not generic")
+
+    for module in EXPECTED_MAVEN_MODULES:
+        pom_path = f"{module}/pom.xml"
+        module_pom = _xml_root(sources, pom_path)
+        artifact = module_pom.find("m:artifactId", MAVEN_NAMESPACE)
+        if artifact is None or artifact.text != module:
+            raise SupplementalValidationError(f"Maven module identity differs from its directory: {module}")
+        if not any(
+            relative.startswith(f"{module}/src/")
+            for relative in paths
+        ):
+            raise SupplementalValidationError(f"Maven module has no tracked source boundary: {module}")
+
+    try:
+        frontend = json.loads(_text(sources, "web-starter-web/package.json"))
+    except json.JSONDecodeError as exception:
+        raise SupplementalValidationError("frontend package metadata is invalid") from exception
+    if not isinstance(frontend, dict) or frontend.get("name") != "web-starter-web":
+        raise SupplementalValidationError("frontend package identity is not generic")
+
+    java_paths = sorted(relative for relative in paths if relative.endswith(".java"))
+    if not java_paths:
+        raise SupplementalValidationError("candidate contains no Java source")
+    java_prefix = re.compile(
+        r"^(web-starter-(?:admin|core|mcp|project|security|system|tooling))/"
+        r"src/(?:main|test)/java/(dev/webstarter(?:/[A-Za-z0-9_]+)*)/"
+        r"[A-Za-z0-9_$]+\.java$"
+    )
+    package_declaration = re.compile(r"(?m)^package\s+([a-zA-Z_][a-zA-Z0-9_.]*);")
+    for relative in java_paths:
+        match = java_prefix.fullmatch(relative)
+        if match is None:
+            raise SupplementalValidationError(f"Java source escaped the generic package boundary: {relative}")
+        expected_package = match.group(2).replace("/", ".")
+        declaration = package_declaration.search(_text(sources, relative))
+        if declaration is None or declaration.group(1) != expected_package:
+            raise SupplementalValidationError(f"Java package differs from its generic path: {relative}")
+
+
 def _validate_source_review(
     check: str,
     artifacts: Sequence[Mapping[str, Any]],
@@ -409,6 +519,8 @@ def _validate_source_review(
         _validate_forbidden_capabilities(sources)
     elif check == "supplemental.operationsDocumentationReview":
         _validate_operations_documentation(sources)
+    elif check == "supplemental.projectIsolationReview":
+        _validate_project_isolation(sources)
     else:
         raise SupplementalValidationError("source-review check is not registered")
     _verify_candidate_root(candidate, root)
