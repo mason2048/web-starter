@@ -445,7 +445,10 @@ class RuntimeTestReportEvidenceTest(unittest.TestCase):
 
         future = self.fixture("future")
         target = future.evidence / validator.PLAYWRIGHT_REPORT
-        future_time = time.time_ns() + validator.MAX_CLOCK_SKEW_NS + 2_000_000_000
+        # Candidate/Git verification is intentionally substantial and can take
+        # more than seven seconds under Linux/x86 emulation. Keep the fixture
+        # far enough ahead that elapsed validation time cannot normalize it.
+        future_time = time.time_ns() + validator.MAX_CLOCK_SKEW_NS + 120_000_000_000
         os.utime(target, ns=(future_time, future_time))
         with self.assertRaisesRegex(validator.RuntimeReportValidationError, "future"):
             future.create()
