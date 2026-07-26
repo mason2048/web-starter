@@ -1,21 +1,57 @@
 import { request } from './http'
 import type {
+  ChangeOwnPasswordPayload,
   CreateOAuthClientPayload,
   CreatedOAuthClient,
   CreateServiceAccountPayload,
   IssuedToken,
   IssueTokenPayload,
   OAuthClient,
+  RevokedSessionsResult,
   ServiceAccount,
   TokenSummary,
   UpdateServiceAccountPayload,
   UpdateOAuthClientPayload,
+  WebSessionSummary,
 } from '@/types/models'
 
 type ResourceId = string
 
 function encoded(id: ResourceId): string {
   return encodeURIComponent(id)
+}
+
+export const accountSecurityApi = {
+  changePassword: (payload: ChangeOwnPasswordPayload) =>
+    request<void>({
+      url: '/security/me/password',
+      method: 'PUT',
+      data: payload,
+      csrf: true,
+    }),
+  listSessions: () =>
+    request<WebSessionSummary[]>({
+      url: '/security/me/sessions',
+      method: 'GET',
+    }),
+  revokeSession: (reference: string) =>
+    request<void>({
+      url: `/security/me/sessions/${encoded(reference)}`,
+      method: 'DELETE',
+      csrf: true,
+    }),
+  revokeOtherSessions: () =>
+    request<RevokedSessionsResult>({
+      url: '/security/me/sessions/others',
+      method: 'DELETE',
+      csrf: true,
+    }),
+  securityLogout: () =>
+    request<void>({
+      url: '/security/me/security-logout',
+      method: 'POST',
+      csrf: true,
+    }),
 }
 
 export const personalTokensApi = {
@@ -97,6 +133,12 @@ export const oauthClientsApi = {
     request<CreatedOAuthClient>({
       url: `/security/oauth-clients/${encoded(id)}/rotate-secret`,
       method: 'POST',
+      csrf: true,
+    }),
+  revokeRetiringSecret: (id: ResourceId) =>
+    request<OAuthClient>({
+      url: `/security/oauth-clients/${encoded(id)}/retiring-secret`,
+      method: 'DELETE',
       csrf: true,
     }),
 }

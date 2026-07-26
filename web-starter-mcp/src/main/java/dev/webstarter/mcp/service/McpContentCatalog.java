@@ -1,8 +1,6 @@
 package dev.webstarter.mcp.service;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +17,7 @@ import io.modelcontextprotocol.spec.McpSchema.Role;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.TextResourceContents;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import dev.webstarter.project.dto.ProjectResponse;
@@ -34,14 +33,25 @@ public class McpContentCatalog {
     private final ProjectService projectService;
     private final McpInvocationService invocationService;
     private final McpJsonMapper jsonMapper;
+    private final McpRuntimeIdentity runtimeIdentity;
+
+    @Autowired
+    public McpContentCatalog(
+            ProjectService projectService,
+            McpInvocationService invocationService,
+            McpJsonMapper jsonMapper,
+            McpRuntimeIdentity runtimeIdentity) {
+        this.projectService = projectService;
+        this.invocationService = invocationService;
+        this.jsonMapper = jsonMapper;
+        this.runtimeIdentity = runtimeIdentity;
+    }
 
     public McpContentCatalog(
             ProjectService projectService,
             McpInvocationService invocationService,
             McpJsonMapper jsonMapper) {
-        this.projectService = projectService;
-        this.invocationService = invocationService;
-        this.jsonMapper = jsonMapper;
+        this(projectService, invocationService, jsonMapper, McpRuntimeIdentity.localTestIdentity());
     }
 
     public List<SyncResourceSpecification> resources() {
@@ -57,7 +67,7 @@ public class McpContentCatalog {
                         () -> new ReadResourceResult(List.of(new TextResourceContents(
                                 SYSTEM_INFO_URI,
                                 "application/json",
-                                writeJson(systemInfoPayload())))))));
+                                writeJson(runtimeIdentity.systemInfo())))))));
     }
 
     public List<SyncPromptSpecification> prompts() {
@@ -91,15 +101,6 @@ public class McpContentCatalog {
         return new GetPromptResult(
                 "Summarize project " + projectId,
                 List.of(new PromptMessage(Role.USER, new TextContent(instructions))));
-    }
-
-    private static Map<String, Object> systemInfoPayload() {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("product", "启程 Web Starter");
-        result.put("server", "web-starter-mcp");
-        result.put("java", Runtime.version().feature());
-        result.put("time", Instant.now().toString());
-        return result;
     }
 
     private String writeJson(Object value) {

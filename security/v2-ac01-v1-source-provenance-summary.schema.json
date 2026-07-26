@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v2-ac01-v1-source-provenance-summary.schema.json",
+  "title": "V2-AC-01 frozen V1 source provenance canonical summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "acceptanceId", "status", "candidate", "v1Source", "checks", "evidence"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceId": {"const": "V2-AC-01"},
+    "status": {"const": "PASS"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "tag", "version"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "tag": {"$ref": "#/$defs/tag"},
+        "version": {"$ref": "#/$defs/version"}
+      }
+    },
+    "v1Source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tag", "tagObject", "commit", "tree", "tagAnnotationSha256",
+        "sourceArchiveSha256", "baselinePath", "baselineBlob", "baselineSha256",
+        "acceptanceRecordPath", "acceptanceRecordBlob", "acceptanceRecordSha256",
+        "acceptanceResultCount", "acceptancePassCount", "baselineP0Count",
+        "baselineP1Count", "automationCheckCount", "finalCheckedCount",
+        "finalConclusion", "historicalExecutionTrust"
+      ],
+      "properties": {
+        "tag": {"const": "v1.0.0"},
+        "tagObject": {"const": "406e73cca6f4d4e257c2aa08e58815d96b7ca722"},
+        "commit": {"const": "5ebdb238650d182c17e1493adf47aaa3324f19cb"},
+        "tree": {"const": "355c61a77f4dd0f16f0f3d945ee6c8d4f02d956a"},
+        "tagAnnotationSha256": {"$ref": "#/$defs/sha256"},
+        "sourceArchiveSha256": {"const": "79b220b5a4da72ea3d4bb98203add92bce83fc19e30cd24ebfa084c7bc360ff5"},
+        "baselinePath": {"const": "docs/acceptance/v1-acceptance-baseline.md"},
+        "baselineBlob": {"const": "d59cbbd26c69c0497b6e0bb28e7c2a9306c02a35"},
+        "baselineSha256": {"const": "aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"},
+        "acceptanceRecordPath": {"const": "docs/acceptance/v1-acceptance-2026-07-19.md"},
+        "acceptanceRecordBlob": {"const": "9e9346046cb4bff5200487281f15fd7621781562"},
+        "acceptanceRecordSha256": {"const": "81ce417c52f004d74275b591d47748f8868226cccaf3e02a21490d42785336f9"},
+        "acceptanceResultCount": {"const": 42},
+        "acceptancePassCount": {"const": 42},
+        "baselineP0Count": {"const": 37},
+        "baselineP1Count": {"const": 5},
+        "automationCheckCount": {"const": 12},
+        "finalCheckedCount": {"const": 5},
+        "finalConclusion": {"const": "PASS"},
+        "historicalExecutionTrust": {"const": "TAGGED_RECORD_ONLY"}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "annotatedTag", "fixedTagTarget", "frozenBaselineDefinitions",
+        "historicalRecordCompleteness", "historicalAutomationRecord",
+        "historicalFinalConclusion", "releaseAncestry", "currentCandidateV1Regression",
+        "historicalRuntimeArtifacts"
+      ],
+      "properties": {
+        "annotatedTag": {"const": "PASS"},
+        "fixedTagTarget": {"const": "PASS"},
+        "frozenBaselineDefinitions": {"const": "PASS"},
+        "historicalRecordCompleteness": {"const": "PASS"},
+        "historicalAutomationRecord": {"const": "PASS"},
+        "historicalFinalConclusion": {"const": "PASS"},
+        "releaseAncestry": {"const": "PASS"},
+        "currentCandidateV1Regression": {"const": "NOT_CLAIMED"},
+        "historicalRuntimeArtifacts": {"const": "NOT_REVALIDATED"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reportSha256", "sourceSha256"],
+      "properties": {
+        "reportSha256": {"$ref": "#/$defs/sha256"},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/create_v1_source_provenance_proof.py",
+            "scripts/validate_v1_source_provenance_proof.py",
+            "security/v2-ac01-v1-source-provenance-summary.schema.json",
+            "docs/acceptance/v2-acceptance-baseline.md",
+            "pom.xml",
+            "web-starter-web/package.json"
+          ],
+          "properties": {
+            "scripts/create_v1_source_provenance_proof.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_v1_source_provenance_proof.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-ac01-v1-source-provenance-summary.schema.json": {"$ref": "#/$defs/sha256"},
+            "docs/acceptance/v2-acceptance-baseline.md": {"$ref": "#/$defs/sha256"},
+            "pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/package.json": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"},
+    "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"}
+  }
+}

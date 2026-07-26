@@ -1,5 +1,6 @@
 package dev.webstarter.security.web;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -8,9 +9,11 @@ import java.util.Set;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -63,11 +66,21 @@ public class OAuthClientController {
     }
 
     @PostMapping("/{id}/rotate-secret")
-    public ApiResponse<CreatedOAuthClientResponse> rotateSecret(@PathVariable String id) {
+    public ApiResponse<CreatedOAuthClientResponse> rotateSecret(
+            @PathVariable String id,
+            @Valid @RequestBody(required = false) RotateOAuthClientSecretRequest request) {
         requireManage();
-        var rotated = clientService.rotateSecret(id);
+        var rotated = request == null || request.overlapSeconds() == null
+                ? clientService.rotateSecret(id)
+                : clientService.rotateSecret(id, Duration.ofSeconds(request.overlapSeconds()));
         return ApiResponse.success(new CreatedOAuthClientResponse(
                 OAuthClientResponse.from(rotated.client()), rotated.rawSecret()));
+    }
+
+    @DeleteMapping("/{id}/retiring-secret")
+    public ApiResponse<OAuthClientResponse> revokeRetiringSecret(@PathVariable String id) {
+        requireManage();
+        return ApiResponse.success(OAuthClientResponse.from(clientService.revokeRetiringSecret(id)));
     }
 
     @PutMapping("/{id}")
@@ -114,6 +127,9 @@ public class OAuthClientController {
             boolean enabled) {
     }
 
+    public record RotateOAuthClientSecretRequest(@Positive Long overlapSeconds) {
+    }
+
     public record OAuthClientResponse(
             String id,
             String clientId,
@@ -125,6 +141,10 @@ public class OAuthClientController {
             boolean requireConsent,
             boolean requirePkce,
             Long serviceAccountId,
+            String clientSecretVersion,
+            String retiringClientSecretVersion,
+            Instant retiringClientSecretExpiresAt,
+            Instant clientSecretRotatedAt,
             boolean enabled,
             Instant createdAt,
             Instant updatedAt) {
@@ -136,7 +156,9 @@ public class OAuthClientController {
                     ScopeCodec.decode(record.grantTypes()),
                     ScopeCodec.decodeLines(record.redirectUris()),
                     ScopeCodec.decode(record.scopes()), record.requireConsent(), record.requirePkce(),
-                    record.serviceAccountId(), record.enabled(), record.createdAt(), record.updatedAt());
+                    record.serviceAccountId(), record.clientSecretVersion(),
+                    record.retiringClientSecretVersion(), record.retiringClientSecretExpiresAt(),
+                    record.clientSecretRotatedAt(), record.enabled(), record.createdAt(), record.updatedAt());
         }
     }
 

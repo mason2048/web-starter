@@ -4,4 +4,6 @@ import dev.webstarter.core.security.CurrentCaller;
 
 public interface CallerPrincipal {
     CurrentCaller caller();
+
+    long securityEpoch();
 }

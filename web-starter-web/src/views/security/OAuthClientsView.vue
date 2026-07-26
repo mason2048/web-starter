@@ -9,7 +9,7 @@
     <el-alert
       class="security-notice"
       type="info"
-      title="授权码模式强制启用 PKCE；客户端凭据模式必须绑定服务账号。密钥轮换后旧密钥立即失效。"
+      title="授权码模式强制启用 PKCE；客户端凭据模式必须绑定服务账号。Client Secret 仅在创建或轮换成功时展示一次，列表不能再次读取明文。"
       :closable="false"
       show-icon
     />
@@ -55,6 +55,9 @@
               <el-tag v-if="row.grantTypes.includes('authorization_code') && row.requirePkce" size="small" effect="plain">PKCE</el-tag>
               <el-tag v-if="row.requireConsent" size="small" type="info" effect="plain">需确认授权</el-tag>
               <el-tag v-if="row.grantTypes.includes('client_credentials')" size="small" type="info" effect="plain">服务身份</el-tag>
+              <el-tag v-if="row.retiringClientSecretVersion" size="small" type="warning" effect="plain">
+                旧密钥至 {{ formatDateTime(row.retiringClientSecretExpiresAt) }}
+              </el-tag>
             </div>
           </template>
         </el-table-column>
@@ -64,10 +67,13 @@
         <el-table-column label="更新时间" min-width="175">
           <template #default="{ row }">{{ formatDateTime(row.updatedAt || row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button v-if="!isPublicClient(row)" link type="primary" @click="confirmRotate(row)">轮换密钥</el-button>
+            <el-button v-if="row.retiringClientSecretVersion" link type="warning" @click="confirmRevokeRetiring(row)">
+              撤销旧密钥
+            </el-button>
             <el-button link :type="row.enabled ? 'danger' : 'success'" @click="confirmToggle(row)">
               {{ row.enabled ? '停用' : '启用' }}
             </el-button>
@@ -498,16 +504,34 @@ async function confirmToggle(client: OAuthClient): Promise<void> {
 async function confirmRotate(client: OAuthClient): Promise<void> {
   try {
     await ElMessageBox.confirm(
-      `确定轮换“${client.clientName}”的客户端密钥吗？旧密钥将立即失效。`,
+      `确定轮换“${client.clientName}”的客户端密钥吗？旧密钥将在受限重叠窗口结束后失效，也可随后手动撤销。`,
       '轮换 OAuth 客户端密钥',
       { type: 'warning', confirmButtonText: '确认轮换' },
     )
     const rotated = await oauthClientsApi.rotateSecret(client.id)
     if (!rotated.clientSecret) throw new Error('服务端未返回一次性客户端密钥')
     rawSecret.value = rotated.clientSecret
-    secretTitle.value = 'OAuth 客户端密钥已轮换'
+    secretTitle.value = rotated.client.retiringClientSecretExpiresAt
+      ? `密钥已轮换；旧密钥于 ${formatDateTime(rotated.client.retiringClientSecretExpiresAt)} 失效`
+      : 'OAuth 客户端密钥已轮换'
     secretOpen.value = true
     void loadClients()
+  } catch (error: unknown) {
+    if (error === 'cancel' || error === 'close') return
+    errorMessage.value = displayError(error)
+  }
+}
+
+async function confirmRevokeRetiring(client: OAuthClient): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      `确定立即撤销“${client.clientName}”的旧客户端密钥吗？使用旧密钥的 Agent 将无法再认证。`,
+      '撤销旧 OAuth 客户端密钥',
+      { type: 'warning', confirmButtonText: '确认撤销' },
+    )
+    await oauthClientsApi.revokeRetiringSecret(client.id)
+    ElMessage.success('旧客户端密钥已撤销')
+    await loadClients()
   } catch (error: unknown) {
     if (error === 'cancel' || error === 'close') return
     errorMessage.value = displayError(error)

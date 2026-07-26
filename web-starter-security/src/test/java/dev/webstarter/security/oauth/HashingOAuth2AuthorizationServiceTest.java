@@ -22,6 +22,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -44,6 +45,9 @@ import dev.webstarter.security.persistence.mapper.OAuthRefreshTokenFamilyMapper;
 import dev.webstarter.security.persistence.model.OAuthRefreshTokenFamilyRecord;
 import dev.webstarter.security.persistence.model.OAuthRefreshTokenHistoryRecord;
 import dev.webstarter.security.persistence.model.OAuthTokenRegistryRecord;
+import dev.webstarter.security.auth.CallerAuthenticationToken;
+import dev.webstarter.core.security.CallerType;
+import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.security.token.TokenHasher;
 
 class HashingOAuth2AuthorizationServiceTest {
@@ -71,6 +75,39 @@ class HashingOAuth2AuthorizationServiceTest {
                 .isInstanceOf(ArrayList.class)
                 .isEqualTo(List.of("http://resource.example.test/mcp"));
         verify(fixture.registry()).upsert(any());
+    }
+
+    @Test
+    void subjectSecurityEpochUsesJdbcJacksonSafeStringRepresentation() {
+        Fixture fixture = fixture();
+        CurrentCaller caller = new CurrentCaller(
+                CallerType.USER,
+                "7",
+                "operator",
+                "Operator",
+                null,
+                "agent-client",
+                Set.of("project:list"),
+                Set.of("project:list"),
+                Set.of(),
+                "trace-1");
+        CallerAuthenticationToken principal = CallerAuthenticationToken.authenticated(
+                caller,
+                23L,
+                List.of(new SimpleGrantedAuthority("PERM_project:list")));
+        OAuth2Authorization authorization = OAuth2Authorization.from(authorization(fixture.client()))
+                .attribute(java.security.Principal.class.getName(), principal)
+                .build();
+
+        fixture.service().save(authorization);
+
+        ArgumentCaptor<OAuth2Authorization> captor = ArgumentCaptor.forClass(OAuth2Authorization.class);
+        verify(fixture.delegate()).save(captor.capture());
+        Object storedEpoch = captor.getValue().getAttribute(
+                HashingOAuth2AuthorizationService.SUBJECT_SECURITY_EPOCH_ATTRIBUTE);
+        assertThat(storedEpoch)
+                .isInstanceOf(String.class)
+                .isEqualTo("23");
     }
 
     @Test
@@ -549,6 +586,21 @@ class HashingOAuth2AuthorizationServiceTest {
                 if (authorizationId.equals(current.authorizationId())
                         && "ACCESS_TOKEN".equals(current.tokenType())
                         && !currentJtiHash.equals(hash)) {
+                    updated[0]++;
+                    return revoked(current, revokedAt);
+                }
+                return current;
+            });
+            return updated[0];
+        }
+
+        @Override
+        public int revokeServiceAccountAccessTokens(Long subjectId, Instant revokedAt) {
+            int[] updated = {0};
+            records.replaceAll((hash, current) -> {
+                if ("SERVICE_ACCOUNT".equals(current.subjectType())
+                        && subjectId.equals(current.subjectId())
+                        && "ACCESS_TOKEN".equals(current.tokenType())) {
                     updated[0]++;
                     return revoked(current, revokedAt);
                 }

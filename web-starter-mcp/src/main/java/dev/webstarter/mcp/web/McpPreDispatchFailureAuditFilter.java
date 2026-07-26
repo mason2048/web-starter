@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
@@ -42,14 +43,25 @@ public class McpPreDispatchFailureAuditFilter extends OncePerRequestFilter {
     private final CallerContext callerContext;
     private final McpFailureAuditService failureAuditService;
     private final McpJsonMapper jsonMapper;
+    private final McpToolCatalog toolCatalog;
+
+    @Autowired
+    public McpPreDispatchFailureAuditFilter(
+            CallerContext callerContext,
+            McpFailureAuditService failureAuditService,
+            McpJsonMapper jsonMapper,
+            McpToolCatalog toolCatalog) {
+        this.callerContext = callerContext;
+        this.failureAuditService = failureAuditService;
+        this.jsonMapper = jsonMapper;
+        this.toolCatalog = toolCatalog;
+    }
 
     public McpPreDispatchFailureAuditFilter(
             CallerContext callerContext,
             McpFailureAuditService failureAuditService,
             McpJsonMapper jsonMapper) {
-        this.callerContext = callerContext;
-        this.failureAuditService = failureAuditService;
-        this.jsonMapper = jsonMapper;
+        this(callerContext, failureAuditService, jsonMapper, null);
     }
 
     @Override
@@ -99,7 +111,9 @@ public class McpPreDispatchFailureAuditFilter extends OncePerRequestFilter {
             if (!(nameValue instanceof String toolName) || toolName.isBlank()) {
                 return new FailedToolCall(TOOLS_CALL, null, "INVALID_ARGUMENT");
             }
-            String permission = McpToolCatalog.permissionFor(toolName);
+            String permission = toolCatalog == null
+                    ? McpToolCatalog.permissionFor(toolName)
+                    : toolCatalog.permissionForRegisteredTool(toolName);
             return new FailedToolCall(
                     limit(toolName, TOOL_NAME_LIMIT),
                     permission,
@@ -131,6 +145,8 @@ public class McpPreDispatchFailureAuditFilter extends OncePerRequestFilter {
                 TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started),
                 request.getRemoteAddr(),
                 failedCall.errorCode(),
+                null,
+                false,
                 traceId,
                 LocalDateTime.now());
         try {

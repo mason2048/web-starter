@@ -61,6 +61,11 @@ a {
   text-decoration: none;
 }
 
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid rgb(0 155 148 / 38%);
+  outline-offset: 2px;
+}
+
 .page-content {
   width: 100%;
   max-width: 1440px;
@@ -214,6 +219,25 @@ a {
 
   .el-drawer {
     width: min(92vw, 430px) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-content {
+    padding: 18px 12px 30px;
+  }
+
+  .filter-row > .el-select {
+    width: 100% !important;
+  }
+
+  .filter-row > .el-button {
+    min-height: 40px;
+  }
+
+  .pagination-row .el-pagination {
+    max-width: 100%;
+    overflow-x: auto;
   }
 }
 

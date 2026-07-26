@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v1-ac16-v2-ac31-ac32-mcp-crud-summary.schema.json",
+  "title": "V1 AC-16 and V2 AC-31/32 MCP CRUD canonical runtime proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "acceptanceIds",
+    "status",
+    "candidate",
+    "runtime",
+    "test",
+    "sources",
+    "checks",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceIds": {"const": ["AC-16", "V2-AC-31", "V2-AC-32"]},
+    "status": {"const": "PASS"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version", "tag"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "tree": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-.][0-9A-Za-z.-]+)?$"},
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+([-.][0-9A-Za-z.-]+)?$"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "composeProject",
+        "tracePrefix",
+        "transactionFailureTrace",
+        "transactionSuccessTrace"
+      ],
+      "properties": {
+        "composeProject": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"},
+        "tracePrefix": {"const": "release-sdk"},
+        "transactionFailureTrace": {"const": "release-sdk-transaction-audit-failure"},
+        "transactionSuccessTrace": {"const": "release-sdk-create-first"}
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "method", "tests", "failures", "errors", "skipped", "flakes"],
+      "properties": {
+        "class": {"const": "dev.webstarter.mcp.acceptance.McpSdkCrudRuntimeIT"},
+        "method": {"const": "provesEachWriteCommitsOnceAcrossConcurrencyRetryConflictAndAudit"},
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "flakes": {"const": 0}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 12,
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "officialSdkRuntime",
+        "businessTransactionRollback",
+        "successBusinessAuditAtomicity",
+        "failedMcpAuditPersists",
+        "idempotencyReservationRollback",
+        "faultInjectionCleaned",
+        "transactionalStorage"
+      ],
+      "properties": {
+        "officialSdkRuntime": {"const": "PASS"},
+        "businessTransactionRollback": {"const": "PASS"},
+        "successBusinessAuditAtomicity": {"const": "PASS"},
+        "failedMcpAuditPersists": {"const": "PASS"},
+        "idempotencyReservationRollback": {"const": "PASS"},
+        "faultInjectionCleaned": {"const": "PASS"},
+        "transactionalStorage": {"const": "PASS"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proofFile",
+        "proofSha256",
+        "reportFile",
+        "reportSha256",
+        "transactionReceiptFile",
+        "transactionReceiptSha256"
+      ],
+      "properties": {
+        "proofFile": {"const": "mcp-crud-runtime-proof.properties"},
+        "proofSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reportFile": {"const": "TEST-dev.webstarter.mcp.acceptance.McpSdkCrudRuntimeIT.xml"},
+        "reportSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "transactionReceiptFile": {"const": "mcp-crud-transaction-receipt.properties"},
+        "transactionReceiptSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

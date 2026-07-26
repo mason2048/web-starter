@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v2-ac41-redis-loss.schema.json",
+  "title": "Web Starter V2-AC-41 formal Redis-loss evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "acceptanceId", "mode", "status", "executedAtUtc",
+    "candidate", "compose", "runtime", "isolation", "redis", "webSession",
+    "mysqlFacts", "audit", "safety"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceId": {"const": "V2-AC-41"},
+    "mode": {"const": "formal"},
+    "status": {"const": "PASS"},
+    "executedAtUtc": {"type": "string", "format": "date-time"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gitCommit", "gitTree", "cleanWorktree", "mavenVersion", "frontendVersion", "sourceSha256"],
+      "properties": {
+        "gitCommit": {"$ref": "#/$defs/gitObject"},
+        "gitTree": {"$ref": "#/$defs/gitObject"},
+        "cleanWorktree": {"const": true},
+        "mavenVersion": {"$ref": "#/$defs/version"},
+        "frontendVersion": {"$ref": "#/$defs/version"},
+        "sourceSha256": {
+          "type": "object",
+          "minProperties": 7,
+          "propertyNames": {"pattern": "^[A-Za-z0-9._/-]+$"},
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "compose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "files", "baseUrl", "mysqlDatabase"],
+      "properties": {
+        "project": {"type": "string", "pattern": "^web-starter-ac41-[a-z0-9][a-z0-9-]{0,39}$"},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+\\.ya?ml$"}
+        },
+        "baseUrl": {"type": "string"},
+        "mysqlDatabase": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["services", "java"],
+      "properties": {
+        "services": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app", "nginx", "mysql", "redis"],
+          "properties": {
+            "app": {"$ref": "#/$defs/service"},
+            "nginx": {"$ref": "#/$defs/service"},
+            "mysql": {"$ref": "#/$defs/service"},
+            "redis": {"$ref": "#/$defs/service"}
+          }
+        },
+        "java": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["specificationVersion", "runtimeVersion"],
+          "properties": {
+            "specificationVersion": {"const": "21"},
+            "runtimeVersion": {"type": "string", "pattern": "^21(?:[.+_-]|$)", "maxLength": 128}
+          }
+        }
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volumes", "volumeDeletionPerformed", "containerDeletionPerformed", "projectDeletionPerformed"],
+      "properties": {
+        "volumes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mysql", "redis"],
+          "properties": {
+            "mysql": {"$ref": "#/$defs/volume"},
+            "redis": {"$ref": "#/$defs/volume"}
+          }
+        },
+        "volumeDeletionPerformed": {"const": false},
+        "containerDeletionPerformed": {"const": false},
+        "projectDeletionPerformed": {"const": false}
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "keysBefore", "command", "result", "keysImmediatelyAfterFlush"],
+      "properties": {
+        "database": {"type": "integer", "minimum": 0, "maximum": 15},
+        "keysBefore": {"type": "integer", "minimum": 1},
+        "command": {"const": "FLUSHDB"},
+        "result": {"const": "OK"},
+        "keysImmediatelyAfterFlush": {"const": 0}
+      }
+    },
+    "webSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authenticatedBeforeLoss", "beforeLossMeStatus", "oldSessionStatusAfterLoss", "reloginSucceeded", "reloginMeStatus", "reloginAttempts"],
+      "properties": {
+        "authenticatedBeforeLoss": {"const": true},
+        "beforeLossMeStatus": {"const": 200},
+        "oldSessionStatusAfterLoss": {"const": 401},
+        "reloginSucceeded": {"const": true},
+        "reloginMeStatus": {"const": 200},
+        "reloginAttempts": {"type": "integer", "minimum": 1, "maximum": 5}
+      }
+    },
+    "mysqlFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprintsBefore", "fingerprintsAfter"],
+      "properties": {
+        "fingerprintsBefore": {"$ref": "#/$defs/fingerprints"},
+        "fingerprintsAfter": {"$ref": "#/$defs/fingerprints"}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rowsBefore", "rowsAfter"],
+      "properties": {
+        "rowsBefore": {"$ref": "#/$defs/audits"},
+        "rowsAfter": {"$ref": "#/$defs/audits"}
+      }
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["redisScope", "flushAllExecuted", "volumeDeletionPerformed", "containerDeletionPerformed", "projectDeletionPerformed"],
+      "properties": {
+        "redisScope": {"const": "SELECTED_DATABASE_ONLY"},
+        "flushAllExecuted": {"const": false},
+        "volumeDeletionPerformed": {"const": false},
+        "containerDeletionPerformed": {"const": false},
+        "projectDeletionPerformed": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "imageReference": {"type": "string", "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$"},
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containerId", "project", "composeReference", "containerReference", "expectedReference", "imageId", "expectedImageId", "ociVersion", "ociRevision"],
+      "properties": {
+        "containerId": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "project": {"type": "string"},
+        "composeReference": {"$ref": "#/$defs/imageReference"},
+        "containerReference": {"$ref": "#/$defs/imageReference"},
+        "expectedReference": {"$ref": "#/$defs/imageReference"},
+        "imageId": {"$ref": "#/$defs/imageId"},
+        "expectedImageId": {"$ref": "#/$defs/imageId"},
+        "ociVersion": {"type": ["string", "null"]},
+        "ociRevision": {"type": ["string", "null"]}
+      }
+    },
+    "volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "destination", "projectLabel", "composeVolumeLabel", "driver", "external"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "destination": {"enum": ["/var/lib/mysql", "/data"]},
+        "projectLabel": {"type": "string"},
+        "composeVolumeLabel": {"type": "string", "minLength": 1},
+        "driver": {"type": "string", "minLength": 1},
+        "external": {"const": false}
+      }
+    },
+    "fingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["business", "rbac", "credential_hashes"],
+      "properties": {
+        "business": {"$ref": "#/$defs/sha256"},
+        "rbac": {"$ref": "#/$defs/sha256"},
+        "credential_hashes": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "audits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sys_login_log", "sys_operation_log", "sys_mcp_call_log"],
+      "properties": {
+        "sys_login_log": {"type": "integer", "minimum": 0},
+        "sys_operation_log": {"type": "integer", "minimum": 0},
+        "sys_mcp_call_log": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

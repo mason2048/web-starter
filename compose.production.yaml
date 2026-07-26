@@ -1,0 +1,260 @@
+name: web-starter
+
+# This file is intentionally standalone. It must never inherit the development
+# build directives from compose.yaml: production consumes only immutable image
+# digests that already passed the release supply-chain workflow.
+services:
+  mysql:
+    image: ${WEB_STARTER_MYSQL_IMAGE:?set an immutable mysql image including @sha256 digest}
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: web_starter
+      MYSQL_USER: ${WEB_STARTER_DB_USERNAME:?set WEB_STARTER_DB_USERNAME}
+      MYSQL_PASSWORD: ${WEB_STARTER_DB_PASSWORD:?set WEB_STARTER_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${WEB_STARTER_DB_ROOT_PASSWORD:?set WEB_STARTER_DB_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+08:00
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'mysqladmin ping -h 127.0.0.1 -uroot --password="$${MYSQL_ROOT_PASSWORD}" --silent'
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  redis:
+    image: ${WEB_STARTER_REDIS_IMAGE:?set an immutable redis image including @sha256 digest}
+    restart: unless-stopped
+    environment:
+      WEB_STARTER_REDIS_PASSWORD: ${WEB_STARTER_REDIS_PASSWORD:?set WEB_STARTER_REDIS_PASSWORD}
+      REDISCLI_AUTH: ${WEB_STARTER_REDIS_PASSWORD:?set WEB_STARTER_REDIS_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${WEB_STARTER_REDIS_PASSWORD:?set WEB_STARTER_REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+
+  app:
+    image: ${WEB_STARTER_APP_IMAGE:?set WEB_STARTER_APP_IMAGE}@${WEB_STARTER_APP_DIGEST:?set WEB_STARTER_APP_DIGEST to sha256 digest}
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1770,uid=10001,gid=10001
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEB_STARTER_APP_CPU_LIMIT:-2.0}"
+          memory: ${WEB_STARTER_APP_MEMORY_LIMIT:-1024M}
+          pids: ${WEB_STARTER_APP_PIDS_LIMIT:-256}
+        reservations:
+          cpus: "${WEB_STARTER_APP_CPU_RESERVATION:-0.25}"
+          memory: ${WEB_STARTER_APP_MEMORY_RESERVATION:-256M}
+    stop_grace_period: 45s
+    environment:
+      WEB_STARTER_RUNTIME_MODE: production
+      WEB_STARTER_GIT_COMMIT: ${WEB_STARTER_GIT_COMMIT:?set the exact lowercase 40/64-character release commit}
+      WEB_STARTER_DB_URL: jdbc:mysql://mysql:3306/web_starter?useUnicode=true&characterEncoding=utf8&preserveInstants=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true&useSSL=false
+      WEB_STARTER_DB_USERNAME: ${WEB_STARTER_DB_USERNAME:?set WEB_STARTER_DB_USERNAME}
+      WEB_STARTER_DB_PASSWORD: ${WEB_STARTER_DB_PASSWORD:?set WEB_STARTER_DB_PASSWORD}
+      WEB_STARTER_DB_POOL_MAX_SIZE: ${WEB_STARTER_DB_POOL_MAX_SIZE:-20}
+      WEB_STARTER_DB_POOL_MIN_IDLE: ${WEB_STARTER_DB_POOL_MIN_IDLE:-2}
+      WEB_STARTER_DB_CONNECTION_TIMEOUT_MS: ${WEB_STARTER_DB_CONNECTION_TIMEOUT_MS:-5000}
+      WEB_STARTER_DB_VALIDATION_TIMEOUT_MS: ${WEB_STARTER_DB_VALIDATION_TIMEOUT_MS:-2000}
+      WEB_STARTER_REDIS_HOST: redis
+      WEB_STARTER_REDIS_PORT: 6379
+      WEB_STARTER_REDIS_PASSWORD: ${WEB_STARTER_REDIS_PASSWORD:?set WEB_STARTER_REDIS_PASSWORD}
+      WEB_STARTER_REDIS_DATABASE: ${WEB_STARTER_REDIS_DATABASE:-0}
+      WEB_STARTER_SESSION_TIMEOUT: ${WEB_STARTER_SESSION_TIMEOUT:-8h}
+      WEB_STARTER_SHUTDOWN_PHASE_TIMEOUT: 10s
+      WEB_STARTER_TOKEN_PEPPER: ${WEB_STARTER_TOKEN_PEPPER:?set WEB_STARTER_TOKEN_PEPPER}
+      WEB_STARTER_CREDENTIAL_PEPPER: ${WEB_STARTER_CREDENTIAL_PEPPER:-}
+      WEB_STARTER_CREDENTIAL_PEPPER_ACTIVE_VERSION: ${WEB_STARTER_CREDENTIAL_PEPPER_ACTIVE_VERSION:-v1}
+      WEB_STARTER_CREDENTIAL_PEPPER_RETIRING: ${WEB_STARTER_CREDENTIAL_PEPPER_RETIRING:-}
+      WEB_STARTER_CREDENTIAL_PEPPER_RETIRING_VERSION: ${WEB_STARTER_CREDENTIAL_PEPPER_RETIRING_VERSION:-}
+      WEB_STARTER_BOOTSTRAP_ADMIN_USERNAME: ${WEB_STARTER_BOOTSTRAP_ADMIN_USERNAME:-}
+      WEB_STARTER_BOOTSTRAP_ADMIN_PASSWORD: ${WEB_STARTER_BOOTSTRAP_ADMIN_PASSWORD:-}
+      WEB_STARTER_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${WEB_STARTER_BOOTSTRAP_ADMIN_DISPLAY_NAME:-系统管理员}
+      WEB_STARTER_OAUTH_ISSUER: ${WEB_STARTER_OAUTH_ISSUER:?set the external HTTPS issuer}
+      WEB_STARTER_OAUTH_RESOURCE_AUDIENCE: ${WEB_STARTER_OAUTH_RESOURCE_AUDIENCE:?set the external HTTPS MCP audience}
+      WEB_STARTER_OAUTH_ACCESS_TOKEN_TTL: ${WEB_STARTER_OAUTH_ACCESS_TOKEN_TTL:-10m}
+      WEB_STARTER_OAUTH_REFRESH_TOKEN_TTL: ${WEB_STARTER_OAUTH_REFRESH_TOKEN_TTL:-8h}
+      WEB_STARTER_OAUTH_CLIENT_SECRET_OVERLAP: ${WEB_STARTER_OAUTH_CLIENT_SECRET_OVERLAP:-15m}
+      WEB_STARTER_OAUTH_CLIENT_SECRET_MAX_OVERLAP: ${WEB_STARTER_OAUTH_CLIENT_SECRET_MAX_OVERLAP:-24h}
+      WEB_STARTER_OAUTH_DEVELOPMENT_KEYS_ALLOWED: "false"
+      WEB_STARTER_OAUTH_RSA_PRIVATE_KEY: ${WEB_STARTER_OAUTH_RSA_PRIVATE_KEY:-}
+      WEB_STARTER_OAUTH_RSA_PUBLIC_KEY: ${WEB_STARTER_OAUTH_RSA_PUBLIC_KEY:-}
+      WEB_STARTER_OAUTH_RSA_JWK_SET: ${WEB_STARTER_OAUTH_RSA_JWK_SET:-}
+      WEB_STARTER_OAUTH_RSA_ACTIVE_KEY_ID: ${WEB_STARTER_OAUTH_RSA_ACTIVE_KEY_ID:-}
+      WEB_STARTER_INTERNAL_TOKENS_ENABLED: ${WEB_STARTER_INTERNAL_TOKENS_ENABLED:-true}
+      WEB_STARTER_COOKIE_SECURE: "true"
+      WEB_STARTER_LOGIN_RATE_LIMIT_ENABLED: ${WEB_STARTER_LOGIN_RATE_LIMIT_ENABLED:-true}
+      WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_IDENTITY: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_IDENTITY:-5}
+      WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_PAIR: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_PAIR:-5}
+      WEB_STARTER_LOGIN_RATE_LIMIT_WINDOW: ${WEB_STARTER_LOGIN_RATE_LIMIT_WINDOW:-15m}
+      WEB_STARTER_LOGIN_RATE_LIMIT_INITIAL_BACKOFF: ${WEB_STARTER_LOGIN_RATE_LIMIT_INITIAL_BACKOFF:-2s}
+      WEB_STARTER_LOGIN_RATE_LIMIT_MAX_BACKOFF: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_BACKOFF:-15m}
+      WEB_STARTER_MCP_ALLOWED_HOSTS: ${WEB_STARTER_MCP_ALLOWED_HOSTS:?set explicit production hosts}
+      WEB_STARTER_MCP_ALLOWED_ORIGINS: ${WEB_STARTER_MCP_ALLOWED_ORIGINS:?set explicit production origins}
+      WEB_STARTER_MCP_IDEMPOTENCY_TTL: ${WEB_STARTER_MCP_IDEMPOTENCY_TTL:-24h}
+      WEB_STARTER_MCP_IDEMPOTENCY_CLEANUP_INTERVAL: ${WEB_STARTER_MCP_IDEMPOTENCY_CLEANUP_INTERVAL:-10m}
+      WEB_STARTER_MCP_SESSION_ENABLED: ${WEB_STARTER_MCP_SESSION_ENABLED:-true}
+      WEB_STARTER_MCP_SESSION_IDLE_TTL: ${WEB_STARTER_MCP_SESSION_IDLE_TTL:-30m}
+      WEB_STARTER_MCP_SESSION_ABSOLUTE_TTL: ${WEB_STARTER_MCP_SESSION_ABSOLUTE_TTL:-8h}
+      WEB_STARTER_MCP_SESSION_MAX_PER_SUBJECT: ${WEB_STARTER_MCP_SESSION_MAX_PER_SUBJECT:-8}
+      WEB_STARTER_MCP_SESSION_RESERVATION_TTL: ${WEB_STARTER_MCP_SESSION_RESERVATION_TTL:-30s}
+      WEB_STARTER_MCP_RATE_LIMIT_ENABLED: ${WEB_STARTER_MCP_RATE_LIMIT_ENABLED:-true}
+      WEB_STARTER_MCP_RATE_LIMIT_WINDOW: ${WEB_STARTER_MCP_RATE_LIMIT_WINDOW:-1m}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_SUBJECT: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_SUBJECT:-240}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_CLIENT: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_CLIENT:-480}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_READ: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_READ:-180}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_WRITE: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_WRITE:-60}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_DESTRUCTIVE: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_DESTRUCTIVE:-20}
+      WEB_STARTER_MCP_RATE_LIMIT_MAX_PROTOCOL: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PROTOCOL:-120}
+      WEB_STARTER_SERVER_PORT: 8080
+      WEB_STARTER_MANAGEMENT_PORT: 8081
+      WEB_STARTER_MANAGEMENT_BIND_ADDRESS: 0.0.0.0
+      WEB_STARTER_MANAGEMENT_USERNAME: ${WEB_STARTER_MANAGEMENT_USERNAME:?set a dedicated operational username}
+      WEB_STARTER_MANAGEMENT_PASSWORD: ${WEB_STARTER_MANAGEMENT_PASSWORD:?set a dedicated operational password}
+      WEB_STARTER_LOG_FORMAT: ecs
+      WEB_STARTER_LOG_LEVEL: ${WEB_STARTER_LOG_LEVEL:-INFO}
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "8080"
+      - "8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+      start_interval: 2s
+    networks:
+      - app
+      - data
+
+  nginx:
+    image: ${WEB_STARTER_NGINX_IMAGE:?set WEB_STARTER_NGINX_IMAGE}@${WEB_STARTER_NGINX_DIGEST:?set WEB_STARTER_NGINX_DIGEST to sha256 digest}
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1770,uid=101,gid=101
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEB_STARTER_NGINX_CPU_LIMIT:-1.0}"
+          memory: ${WEB_STARTER_NGINX_MEMORY_LIMIT:-256M}
+          pids: ${WEB_STARTER_NGINX_PIDS_LIMIT:-128}
+        reservations:
+          cpus: "${WEB_STARTER_NGINX_CPU_RESERVATION:-0.10}"
+          memory: ${WEB_STARTER_NGINX_MEMORY_RESERVATION:-64M}
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "${WEB_STARTER_HTTP_BIND_ADDRESS:-127.0.0.1}:${WEB_STARTER_HTTP_PORT:-8088}:8080"
+    networks:
+      - app
+
+  mcp-public-nginx:
+    image: ${WEB_STARTER_NGINX_IMAGE:?set WEB_STARTER_NGINX_IMAGE}@${WEB_STARTER_NGINX_DIGEST:?set WEB_STARTER_NGINX_DIGEST to sha256 digest}
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    init: true
+    command: ["nginx", "-c", "/etc/nginx/nginx-public.conf", "-g", "daemon off;"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1770,uid=101,gid=101
+    deploy:
+      resources:
+        limits:
+          cpus: "${WEB_STARTER_NGINX_CPU_LIMIT:-1.0}"
+          memory: ${WEB_STARTER_NGINX_MEMORY_LIMIT:-256M}
+          pids: ${WEB_STARTER_NGINX_PIDS_LIMIT:-128}
+        reservations:
+          cpus: "${WEB_STARTER_NGINX_CPU_RESERVATION:-0.10}"
+          memory: ${WEB_STARTER_NGINX_MEMORY_RESERVATION:-64M}
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${WEB_STARTER_PUBLIC_TLS_CERT_FILE:?set WEB_STARTER_PUBLIC_TLS_CERT_FILE}
+        target: /etc/nginx/tls/fullchain.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${WEB_STARTER_PUBLIC_TLS_KEY_FILE:?set WEB_STARTER_PUBLIC_TLS_KEY_FILE}
+        target: /etc/nginx/tls/privkey.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "${WEB_STARTER_PUBLIC_MCP_BIND_ADDRESS:-0.0.0.0}:${WEB_STARTER_PUBLIC_MCP_PORT:-8443}:8443"
+    networks:
+      - app
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  app:
+  data:
+    internal: true

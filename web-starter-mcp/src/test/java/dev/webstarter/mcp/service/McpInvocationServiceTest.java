@@ -13,6 +13,7 @@ import java.util.Set;
 import jakarta.validation.ConstraintViolationException;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
@@ -39,6 +40,10 @@ class McpInvocationServiceTest {
                 .isEqualTo("INVALID_ARGUMENT");
         assertThat(McpInvocationService.errorCode(new PermissionDeniedException("project:create")))
                 .isEqualTo("FORBIDDEN");
+        assertThat(McpInvocationService.errorCode(new McpIdempotencyConflictException("conflict")))
+                .isEqualTo("IDEMPOTENCY_CONFLICT");
+        assertThat(McpInvocationService.errorCode(new McpIdempotencyInProgressException()))
+                .isEqualTo("IDEMPOTENCY_IN_PROGRESS");
     }
 
     @Test
@@ -91,6 +96,31 @@ class McpInvocationServiceTest {
         finally {
             RequestContextHolder.resetRequestAttributes();
         }
+    }
+
+    @Test
+    void successAuditIncludesOnlyTheHashedIdempotencyKeyAndReplayMarker() {
+        CallerContext callerContext = mock(CallerContext.class);
+        when(callerContext.required()).thenReturn(caller());
+        PermissionService permissionService = mock(PermissionService.class);
+        AuditLogRecorder auditLogRecorder = mock(AuditLogRecorder.class);
+        McpInvocationService target = new McpInvocationService(
+                callerContext,
+                permissionService,
+                auditLogRecorder,
+                mock(McpFailureAuditService.class));
+
+        assertThat(target.invoke("project.create", "project:create", () -> {
+            McpInvocationMetadata.idempotency("hashed-key", true);
+            return "replayed";
+        })).isEqualTo("replayed");
+
+        ArgumentCaptor<McpCallAuditEvent> event = ArgumentCaptor.forClass(McpCallAuditEvent.class);
+        verify(auditLogRecorder).recordMcpCall(event.capture());
+        assertThat(event.getValue().idempotencyKeyHash()).isEqualTo("hashed-key");
+        assertThat(event.getValue().replayed()).isTrue();
+        assertThat(McpInvocationMetadata.keyHash()).isNull();
+        assertThat(McpInvocationMetadata.replayed()).isFalse();
     }
 
     private static CurrentCaller caller() {

@@ -6,6 +6,8 @@ import dev.webstarter.core.api.PageQuery;
 import dev.webstarter.core.api.PageResult;
 import dev.webstarter.core.exception.ConflictException;
 import dev.webstarter.core.exception.NotFoundException;
+import dev.webstarter.core.exception.PermissionDeniedException;
+import dev.webstarter.core.security.CallerType;
 import dev.webstarter.core.security.CallerContext;
 import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.core.security.PasswordHasher;
@@ -21,6 +23,7 @@ import dev.webstarter.system.persistence.mapper.RoleMapper;
 import dev.webstarter.system.persistence.mapper.UserMapper;
 import dev.webstarter.system.persistence.mapper.UserRoleMapper;
 import dev.webstarter.system.service.SystemPermissions;
+import dev.webstarter.system.service.IdentitySecurityLifecyclePort;
 import dev.webstarter.system.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +37,11 @@ import java.util.Set;
 public class UserServiceImpl extends SecuredOperation implements UserService {
 
     private final UserMapper userMapper;
+    private final CallerContext callerContext;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final PasswordHasher passwordHasher;
+    private final IdentitySecurityLifecyclePort securityLifecycle;
     private final AdministratorContinuityGuard administratorContinuityGuard;
 
     public UserServiceImpl(
@@ -45,13 +50,16 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
             UserMapper userMapper,
             RoleMapper roleMapper,
             UserRoleMapper userRoleMapper,
-            PasswordHasher passwordHasher
+            PasswordHasher passwordHasher,
+            IdentitySecurityLifecyclePort securityLifecycle
     ) {
         super(callerContext, permissionService);
+        this.callerContext = callerContext;
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.passwordHasher = passwordHasher;
+        this.securityLifecycle = securityLifecycle;
         this.administratorContinuityGuard = new AdministratorContinuityGuard(roleMapper, userRoleMapper);
     }
 
@@ -93,6 +101,7 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
         user.setEmail(trimToNull(request.email()));
         user.setMobile(trimToNull(request.mobile()));
         user.setStatus(defaultStatus(request.status()));
+        user.setSecurityEpoch(0L);
         user.setVersion(0);
         user.setDeleted(0);
         user.setCreatedAt(now);
@@ -116,15 +125,24 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
         ensureRolesExist(request.roleIds());
         administratorContinuityGuard.ensureTransitionKeepsEnabledAdministrator(
                 id, user.getStatus(), request.status(), request.roleIds());
+        boolean disabledNow = "ENABLED".equals(user.getStatus())
+                && !"ENABLED".equals(request.status());
         user.setDisplayName(request.displayName().trim());
         user.setEmail(trimToNull(request.email()));
         user.setMobile(trimToNull(request.mobile()));
         user.setStatus(request.status());
+        if (disabledNow) {
+            user.setSecurityEpoch(securityEpoch(user) + 1);
+        }
         user.setUpdatedAt(LocalDateTime.now());
         if (userMapper.updateById(user) == 0) {
             throw new ConflictException("User was changed by another request");
         }
         replaceRoles(id, request.roleIds());
+        if (disabledNow) {
+            securityLifecycle.userSecurityEpochAdvanced(
+                    id, user.getUsername(), securityEpoch(user), "SUBJECT_DISABLED");
+        }
         return toResponse(requireUser(id));
     }
 
@@ -134,10 +152,60 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
         requirePermission(SystemPermissions.USER_UPDATE);
         SysUser user = requireUser(id);
         user.setPasswordHash(passwordHasher.hash(request.password()));
+        LocalDateTime now = LocalDateTime.now();
+        user.setSecurityEpoch(securityEpoch(user) + 1);
+        user.setPasswordChangedAt(now);
+        user.setUpdatedAt(now);
+        if (userMapper.updateById(user) == 0) {
+            throw new ConflictException("User was changed by another request");
+        }
+        securityLifecycle.userSecurityEpochAdvanced(
+                id, user.getUsername(), securityEpoch(user), "PASSWORD_CHANGED");
+    }
+
+    @Override
+    @Transactional
+    public void securityLogout(Long id) {
+        CurrentCaller caller = callerContext.required();
+        if (caller.callerType() != CallerType.USER
+                || !caller.subjectId().equals(String.valueOf(id))) {
+            throw new PermissionDeniedException("account:security-logout");
+        }
+        SysUser user = requireUser(id);
+        user.setSecurityEpoch(securityEpoch(user) + 1);
         user.setUpdatedAt(LocalDateTime.now());
         if (userMapper.updateById(user) == 0) {
             throw new ConflictException("User was changed by another request");
         }
+        securityLifecycle.userSecurityEpochAdvanced(
+                id, user.getUsername(), securityEpoch(user), "SECURITY_LOGOUT");
+    }
+
+    @Override
+    @Transactional
+    public void changeOwnPassword(Long id, String currentPassword, String newPassword) {
+        CurrentCaller caller = callerContext.required();
+        if (caller.callerType() != CallerType.USER
+                || !caller.subjectId().equals(String.valueOf(id))) {
+            throw new PermissionDeniedException("account:self-password");
+        }
+        SysUser user = requireUser(id);
+        if (!passwordHasher.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+        if (passwordHasher.matches(newPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("New password must differ from the current password");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        user.setPasswordHash(passwordHasher.hash(newPassword));
+        user.setSecurityEpoch(securityEpoch(user) + 1);
+        user.setPasswordChangedAt(now);
+        user.setUpdatedAt(now);
+        if (userMapper.updateById(user) == 0) {
+            throw new ConflictException("User was changed by another request");
+        }
+        securityLifecycle.userSecurityEpochAdvanced(
+                id, user.getUsername(), securityEpoch(user), "PASSWORD_CHANGED");
     }
 
     @Override
@@ -152,6 +220,8 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
                 id, user.getStatus(), "DISABLED", Set.of());
         userRoleMapper.deleteByUserId(id);
         userMapper.deleteById(id);
+        securityLifecycle.userSecurityEpochAdvanced(
+                id, user.getUsername(), securityEpoch(user) + 1, "SUBJECT_REMOVED");
     }
 
     private SysUser requireUser(Long id) {
@@ -198,5 +268,9 @@ public class UserServiceImpl extends SecuredOperation implements UserService {
 
     private static String defaultStatus(String status) {
         return hasText(status) ? status : "ENABLED";
+    }
+
+    private static long securityEpoch(SysUser user) {
+        return user.getSecurityEpoch() == null ? 0 : user.getSecurityEpoch();
     }
 }

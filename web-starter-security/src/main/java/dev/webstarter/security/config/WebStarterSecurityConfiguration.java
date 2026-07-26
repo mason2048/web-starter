@@ -1,12 +1,8 @@
 package dev.webstarter.security.config;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import java.time.Clock;
 import java.util.List;
 
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 
@@ -15,6 +11,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
@@ -46,6 +45,7 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
+import org.springframework.security.oauth2.server.authorization.authentication.ClientSecretAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2RefreshTokenAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -79,17 +79,19 @@ import dev.webstarter.security.auth.SystemCredentialSubjectResolver;
 import dev.webstarter.security.auth.SystemUserDetailsService;
 import dev.webstarter.security.oauth.AudienceValidator;
 import dev.webstarter.security.oauth.DatabaseRegisteredClientRepository;
+import dev.webstarter.security.oauth.ExactLifetimeAccessTokenResponseSuccessHandler;
 import dev.webstarter.security.oauth.HashingOAuth2AuthorizationService;
 import dev.webstarter.security.oauth.JtiRegistryValidator;
 import dev.webstarter.security.oauth.JwtCallerAuthenticationConverter;
 import dev.webstarter.security.oauth.McpBearerAuthenticationEntryPoint;
 import dev.webstarter.security.oauth.OAuthClientManagementService;
+import dev.webstarter.security.oauth.OAuthClientSecretPasswordEncoder;
 import dev.webstarter.security.oauth.OAuthLoginAuthenticationEntryPoint;
 import dev.webstarter.security.oauth.OAuthRefreshTokenFamilyService;
 import dev.webstarter.security.oauth.PublicClientNoneAuthenticationConverter;
 import dev.webstarter.security.oauth.PublicClientNoneAuthenticationProvider;
 import dev.webstarter.security.oauth.PublicClientRefreshTokenGenerator;
-import dev.webstarter.security.oauth.RsaKeyMaterial;
+import dev.webstarter.security.oauth.OAuthSigningKeyRing;
 import dev.webstarter.security.oauth.TransactionalRefreshTokenAuthenticationProvider;
 import dev.webstarter.security.oauth.WebStarterJwtCustomizer;
 import dev.webstarter.security.persistence.mapper.AccessCredentialMapper;
@@ -99,9 +101,14 @@ import dev.webstarter.security.persistence.mapper.OAuthTokenRegistryMapper;
 import dev.webstarter.security.persistence.mapper.ServiceAccountMapper;
 import dev.webstarter.security.token.AccessCredentialService;
 import dev.webstarter.security.token.CredentialScopePolicy;
+import dev.webstarter.security.token.CredentialPepperKeyRing;
 import dev.webstarter.security.token.DatabaseCredentialScopePolicy;
 import dev.webstarter.security.token.ServiceAccountService;
 import dev.webstarter.security.token.TokenHasher;
+import dev.webstarter.security.login.LoginAttemptLimiter;
+import dev.webstarter.security.login.LoginRateLimitProperties;
+import dev.webstarter.security.login.RedisLoginAttemptLimiter;
+import dev.webstarter.security.session.WebSessionManagementService;
 import dev.webstarter.security.web.ApiAuthenticationEntryPoint;
 import dev.webstarter.system.persistence.mapper.PermissionMapper;
 import dev.webstarter.system.persistence.mapper.RoleMapper;
@@ -110,7 +117,7 @@ import dev.webstarter.system.service.SystemIdentityService;
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(WebStarterSecurityProperties.class)
+@EnableConfigurationProperties({WebStarterSecurityProperties.class, LoginRateLimitProperties.class})
 public class WebStarterSecurityConfiguration {
 
     @Bean
@@ -119,7 +126,9 @@ public class WebStarterSecurityConfiguration {
             HttpSecurity http,
             RegisteredClientRepository clients,
             AuthorizationServerSettings authorizationServerSettings,
-            TransactionalRefreshTokenAuthenticationProvider refreshTokenProvider) throws Exception {
+            TransactionalRefreshTokenAuthenticationProvider refreshTokenProvider,
+            OAuthClientSecretPasswordEncoder clientSecretPasswordEncoder,
+            CallerContext callerContext) throws Exception {
         AuthenticationProvider refreshTokenAdapter = new AuthenticationProvider() {
             @Override
             public org.springframework.security.core.Authentication authenticate(
@@ -137,7 +146,12 @@ public class WebStarterSecurityConfiguration {
             authorizationServer.clientAuthentication(clientAuthentication -> clientAuthentication
                     .authenticationConverter(
                             new PublicClientNoneAuthenticationConverter(authorizationServerSettings))
-                    .authenticationProvider(new PublicClientNoneAuthenticationProvider(clients)));
+                    .authenticationProvider(new PublicClientNoneAuthenticationProvider(clients))
+                    .authenticationProviders(providers -> providers.forEach(provider -> {
+                        if (provider instanceof ClientSecretAuthenticationProvider clientSecretProvider) {
+                            clientSecretProvider.setPasswordEncoder(clientSecretPasswordEncoder);
+                        }
+                    })));
             authorizationServer.authorizationServerMetadataEndpoint(metadata -> metadata
                     .authorizationServerMetadataCustomizer(
                             WebStarterSecurityConfiguration::customizeAuthorizationServerMetadata));
@@ -148,24 +162,31 @@ public class WebStarterSecurityConfiguration {
                             WebStarterSecurityConfiguration::validateExactRedirectUri);
                         }
                     })));
-            authorizationServer.tokenEndpoint(endpoint -> endpoint.authenticationProviders(providers -> {
-                boolean replaced = false;
-                for (int index = 0; index < providers.size(); index++) {
-                    if (providers.get(index) instanceof OAuth2RefreshTokenAuthenticationProvider) {
-                        providers.set(index, refreshTokenAdapter);
-                        replaced = true;
+            authorizationServer.tokenEndpoint(endpoint -> {
+                endpoint.accessTokenResponseHandler(
+                        new ExactLifetimeAccessTokenResponseSuccessHandler());
+                endpoint.authenticationProviders(providers -> {
+                    boolean replaced = false;
+                    for (int index = 0; index < providers.size(); index++) {
+                        if (providers.get(index) instanceof OAuth2RefreshTokenAuthenticationProvider) {
+                            providers.set(index, refreshTokenAdapter);
+                            replaced = true;
+                        }
                     }
-                }
-                if (!replaced) {
-                    throw new IllegalStateException(
-                            "Spring Authorization Server refresh provider was not found");
-                }
-            }));
+                    if (!replaced) {
+                        throw new IllegalStateException(
+                                "Spring Authorization Server refresh provider was not found");
+                    }
+                });
+            });
         });
         http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
         http.exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                 new OAuthLoginAuthenticationEntryPoint(),
                 request -> "/oauth2/authorize".equals(request.getServletPath())));
+        http.addFilterAfter(
+                new CallerSnapshotRequestFilter(callerContext),
+                SecurityContextHolderFilter.class);
         return http.build();
     }
 
@@ -228,7 +249,7 @@ public class WebStarterSecurityConfiguration {
     }
 
     @Bean
-    @Order(3)
+    @Order(4)
     SecurityFilterChain webSecurityFilterChain(HttpSecurity http, CallerContext callerContext) throws Exception {
         CookieCsrfTokenRepository csrf = CookieCsrfTokenRepository.withHttpOnlyFalse();
         csrf.setCookieName("XSRF-TOKEN");
@@ -238,11 +259,8 @@ public class WebStarterSecurityConfiguration {
                                 "/api/auth/login",
                                 "/api/auth/csrf",
                                 "/.well-known/oauth-protected-resource/**",
-                                "/actuator/health",
-                                "/actuator/health/**",
                                 "/error")
                         .permitAll()
-                        .requestMatchers("/actuator/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .csrf(configurer -> configurer.csrfTokenRepository(csrf))
@@ -284,8 +302,18 @@ public class WebStarterSecurityConfiguration {
     }
 
     @Bean
+    OAuthClientSecretPasswordEncoder oauthClientSecretPasswordEncoder(PasswordEncoder passwordEncoder) {
+        return new OAuthClientSecretPasswordEncoder(passwordEncoder);
+    }
+
+    @Bean
     TokenHasher tokenHasher(WebStarterSecurityProperties properties) {
         return new TokenHasher(properties.requiredTokenPepper());
+    }
+
+    @Bean
+    CredentialPepperKeyRing credentialPepperKeyRing(WebStarterSecurityProperties properties) {
+        return CredentialPepperKeyRing.from(properties);
     }
 
     @Bean
@@ -321,22 +349,44 @@ public class WebStarterSecurityConfiguration {
     @Bean
     AccessCredentialService accessCredentialService(
             AccessCredentialMapper mapper,
-            TokenHasher tokenHasher,
-            CredentialScopePolicy scopePolicy) {
-        return new AccessCredentialService(mapper, tokenHasher, scopePolicy);
+            CredentialPepperKeyRing pepperKeyRing,
+            CredentialScopePolicy scopePolicy,
+            CredentialSubjectResolver subjectResolver) {
+        return new AccessCredentialService(mapper, pepperKeyRing, scopePolicy, subjectResolver);
     }
 
     @Bean
-    ServiceAccountService serviceAccountService(ServiceAccountMapper mapper, RoleMapper roleMapper) {
-        return new ServiceAccountService(mapper, roleMapper);
+    ServiceAccountService serviceAccountService(
+            ServiceAccountMapper mapper,
+            RoleMapper roleMapper,
+            AccessCredentialMapper credentialMapper,
+            OAuthTokenRegistryMapper oauthTokenRegistryMapper) {
+        return new ServiceAccountService(
+                mapper, roleMapper, credentialMapper, oauthTokenRegistryMapper);
+    }
+
+    @Bean
+    WebSessionManagementService webSessionManagementService(
+            FindByIndexNameSessionRepository<? extends Session> sessions,
+            TokenHasher tokenHasher) {
+        return new WebSessionManagementService(sessions, tokenHasher);
+    }
+
+    @Bean
+    LoginAttemptLimiter loginAttemptLimiter(
+            StringRedisTemplate redis,
+            TokenHasher tokenHasher,
+            LoginRateLimitProperties properties) {
+        return new RedisLoginAttemptLimiter(redis, tokenHasher, properties);
     }
 
     @Bean
     OAuthClientManagementService oauthClientManagementService(
             OAuthClientMapper mapper,
-            PasswordEncoder passwordEncoder,
-            CredentialScopePolicy scopePolicy) {
-        return new OAuthClientManagementService(mapper, passwordEncoder, scopePolicy);
+            OAuthClientSecretPasswordEncoder passwordEncoder,
+            CredentialScopePolicy scopePolicy,
+            WebStarterSecurityProperties properties) {
+        return new OAuthClientManagementService(mapper, passwordEncoder, scopePolicy, properties);
     }
 
     @Bean
@@ -385,23 +435,29 @@ public class WebStarterSecurityConfiguration {
     }
 
     @Bean
-    RsaKeyMaterial rsaKeyMaterial(WebStarterSecurityProperties properties) {
-        return RsaKeyMaterial.from(properties);
+    Clock oauthSigningKeyLifecycleClock() {
+        return Clock.systemUTC();
     }
 
     @Bean
-    JWKSource<SecurityContext> jwkSource(RsaKeyMaterial keys) {
-        RSAKey rsaKey = new RSAKey.Builder(keys.publicKey())
-                .privateKey(keys.privateKey())
-                .keyID(keyId(keys))
-                .build();
-        JWKSet jwkSet = new JWKSet(rsaKey);
-        return (selector, context) -> selector.select(jwkSet);
+    OAuthSigningKeyRing oauthSigningKeyRing(
+            WebStarterSecurityProperties properties,
+            Clock oauthSigningKeyLifecycleClock) {
+        return OAuthSigningKeyRing.from(properties, oauthSigningKeyLifecycleClock);
     }
 
     @Bean
-    JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
-        return new NimbusJwtEncoder(jwkSource);
+    JWKSource<SecurityContext> jwkSource(OAuthSigningKeyRing keyRing) {
+        return (selector, context) -> selector.select(keyRing.jwkSet());
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder(
+            JWKSource<SecurityContext> jwkSource,
+            OAuthSigningKeyRing keyRing) {
+        NimbusJwtEncoder encoder = new NimbusJwtEncoder(jwkSource);
+        encoder.setJwkSelector(keyRing::selectActiveSigningKey);
+        return encoder;
     }
 
     @Bean
@@ -419,13 +475,13 @@ public class WebStarterSecurityConfiguration {
 
     @Bean
     JwtDecoder jwtDecoder(
-            RsaKeyMaterial keys,
+            JWKSource<SecurityContext> jwkSource,
             WebStarterSecurityProperties properties,
             OAuthTokenRegistryMapper tokenRegistry,
             OAuthClientMapper oauthClientMapper,
             TokenHasher tokenHasher) {
         JwtDecoder decoder = org.springframework.security.oauth2.jwt.NimbusJwtDecoder
-                .withPublicKey(keys.publicKey())
+                .withJwkSource(jwkSource)
                 .build();
         if (decoder instanceof org.springframework.security.oauth2.jwt.NimbusJwtDecoder nimbus) {
             nimbus.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
@@ -453,16 +509,6 @@ public class WebStarterSecurityConfiguration {
         web.setPasswordEncoder(passwordEncoder);
         var internal = new InternalCredentialAuthenticationProvider(credentialService, subjectResolver);
         return new ProviderManager(web, internal);
-    }
-
-    private static String keyId(RsaKeyMaterial keys) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(keys.publicKey().getEncoded());
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
-        }
-        catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
     }
 
     static void validateExactRedirectUri(OAuth2AuthorizationCodeRequestAuthenticationContext context) {

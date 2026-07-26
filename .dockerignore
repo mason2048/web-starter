@@ -37,3 +37,6 @@ application-local*
 **/.secrets/
 playwright-report
 test-results
+artifacts
+.release-tools
+release/evidence

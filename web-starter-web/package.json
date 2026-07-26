@@ -1,7 +1,7 @@
 {
   "name": "web-starter-web",
   "private": true,
-  "version": "2.0.0-SNAPSHOT",
+  "version": "2.0.0",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -9,11 +9,17 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "pnpm run typecheck && vite build",
+    "build": "pnpm run contract:check && pnpm run typecheck && vite build && pnpm run bundle:check && pnpm run production:mount-check",
+    "bundle:check": "node scripts/check-bundle-budget.mjs",
+    "contract:check": "node scripts/check-private-api-contract.mjs",
+    "contract:write": "node scripts/render-private-api-contract.mjs",
+    "production:mount-check": "node scripts/check-production-mount.mjs",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "vue-tsc --build --force",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:release": "playwright test e2e/release-runtime.spec.ts e2e/frontend-quality-runtime.spec.ts e2e/v1-management-runtime.spec.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -26,13 +32,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
+    "@playwright/test": "1.61.1",
     "@tsconfig/node22": "^22.0.2",
     "@types/node": "^24.7.2",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vitest/coverage-v8": "4.1.10",
-    "@vue/tsconfig": "^0.8.1",
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.8.1",
     "eslint": "^9.37.0",
     "eslint-plugin-vue": "^10.5.1",
     "jsdom": "^27.0.0",

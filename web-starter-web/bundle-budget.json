@@ -1,0 +1,7 @@
+{
+  "maxEntryJavaScriptBytes": 850000,
+  "maxJavaScriptChunkBytes": 350000,
+  "maxStylesheetBytes": 400000,
+  "maxOtherAssetBytes": 500000,
+  "maxTotalProductionBytes": 1800000
+}

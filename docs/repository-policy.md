@@ -10,7 +10,7 @@ python3 scripts/repository_policy.py secrets
 
 该检查覆盖常见云平台与代码托管 Token、Bearer/JWT、带凭据 URL、私钥材料、证书/密钥文件，以及配置文件中的密码、Token、Pepper、私钥等字面量。环境变量引用、空值及明确的示例占位值不会被当作真实秘密，因此 `.env.example` 可以保留可识别的占位说明。
 
-GitHub Actions 会运行脚本单元测试和此秘密扫描；命中时只输出规则、文件和行号，不输出秘密原文。
+GitHub Actions 和统一 `verify` 都会运行脚本单元测试及当前候选仓库的真实秘密扫描；任一步失败都会使策略层失败并阻断发布。命中时只输出规则、文件和行号，不输出秘密原文。
 
 ## 禁止业务词扫描
 

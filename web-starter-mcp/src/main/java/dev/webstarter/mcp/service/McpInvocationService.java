@@ -57,6 +57,7 @@ public class McpInvocationService {
         long startedAt = System.nanoTime();
         CurrentCaller caller = callerContext.required();
         markRequestAudited();
+        McpInvocationMetadata.reset();
         try {
             permissionService.requirePermission(caller, permission);
             T result = action.get();
@@ -66,6 +67,9 @@ public class McpInvocationService {
         catch (RuntimeException exception) {
             recordFailure(caller, operation, permission, errorCode(exception), startedAt);
             throw exception;
+        }
+        finally {
+            McpInvocationMetadata.reset();
         }
     }
 
@@ -114,6 +118,8 @@ public class McpInvocationService {
                 (System.nanoTime() - startedAt) / 1_000_000,
                 remoteAddress(),
                 errorCode,
+                McpInvocationMetadata.keyHash(),
+                McpInvocationMetadata.replayed(),
                 caller.traceId() == null ? TraceContext.traceId() : caller.traceId(),
                 LocalDateTime.now());
     }
@@ -141,6 +147,12 @@ public class McpInvocationService {
         }
         if (throwable instanceof ConstraintViolationException) {
             return "INVALID_ARGUMENT";
+        }
+        if (throwable instanceof McpIdempotencyConflictException) {
+            return "IDEMPOTENCY_CONFLICT";
+        }
+        if (throwable instanceof McpIdempotencyInProgressException) {
+            return "IDEMPOTENCY_IN_PROGRESS";
         }
         if (throwable instanceof BusinessException businessException) {
             return "BUSINESS_" + businessException.getCode();

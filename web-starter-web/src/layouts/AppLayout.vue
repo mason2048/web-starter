@@ -14,8 +14,8 @@
           <span>启程 Web Starter</span>
         </div>
         <div class="topbar-spacer" />
-        <el-tooltip content="搜索功能即将开放" placement="bottom">
-          <button class="topbar-icon" type="button" aria-label="搜索">
+        <el-tooltip content="搜索功能（⌘/Ctrl + K）" placement="bottom">
+          <button class="topbar-icon search-trigger" type="button" aria-label="搜索功能" @click="commandOpen = true">
             <el-icon><Search /></el-icon>
           </button>
         </el-tooltip>
@@ -34,11 +34,16 @@
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item disabled>{{ auth.currentUser?.username }}</el-dropdown-item>
+              <el-dropdown-item command="account-security">个人安全</el-dropdown-item>
               <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </header>
+
+      <div class="contextbar">
+        <BreadcrumbNav />
+      </div>
 
       <main class="main-content">
         <RouterView v-slot="{ Component }">
@@ -52,15 +57,18 @@
     <el-drawer v-model="mobileNavOpen" direction="ltr" :with-header="false" size="248px" class="nav-drawer">
       <SidebarNav @navigate="mobileNavOpen = false" />
     </el-drawer>
+    <CommandSearch v-model="commandOpen" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter, RouterView } from 'vue-router'
 import { ArrowDown, Bell, Menu, Search, User } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import BrandLogo from '@/components/BrandLogo.vue'
+import BreadcrumbNav from '@/components/BreadcrumbNav.vue'
+import CommandSearch from '@/components/CommandSearch.vue'
 import SidebarNav from '@/components/SidebarNav.vue'
 import { useAuthStore } from '@/stores/auth'
 import { displayError } from '@/utils/format'
@@ -68,8 +76,23 @@ import { displayError } from '@/utils/format'
 const auth = useAuthStore()
 const router = useRouter()
 const mobileNavOpen = ref(false)
+const commandOpen = ref(false)
+
+function handleGlobalShortcut(event: KeyboardEvent): void {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'k') {
+    event.preventDefault()
+    commandOpen.value = true
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', handleGlobalShortcut))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalShortcut))
 
 async function handleCommand(command: string): Promise<void> {
+  if (command === 'account-security') {
+    await router.push({ name: 'account-security' })
+    return
+  }
   if (command !== 'logout') return
   try {
     await auth.signOut()
@@ -186,8 +209,16 @@ async function handleCommand(command: string): Promise<void> {
 }
 
 .main-content {
-  min-height: calc(100vh - 70px);
+  min-height: calc(100vh - 109px);
   background: #fff;
+}
+
+.contextbar {
+  display: flex;
+  min-height: 39px;
+  padding: 0 36px;
+  border-bottom: 1px solid #edf0f4;
+  align-items: center;
 }
 
 .mobile-brand {
@@ -244,9 +275,14 @@ async function handleCommand(command: string): Promise<void> {
     display: flex;
   }
 
-  .topbar-icon,
+  .topbar-icon:not(.search-trigger),
   .topbar-divider {
     display: none;
+  }
+
+  .search-trigger {
+    width: 38px;
+    height: 38px;
   }
 
   .user-menu {
@@ -259,7 +295,11 @@ async function handleCommand(command: string): Promise<void> {
   }
 
   .main-content {
-    min-height: calc(100vh - 62px);
+    min-height: calc(100vh - 101px);
+  }
+
+  .contextbar {
+    padding: 0 18px;
   }
 }
 </style>

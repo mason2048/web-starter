@@ -1,8 +1,36 @@
-# 示例模块复制规范
+# 示例模块复制与生成规范
 
-V1 采用“可审计的复制规范”，不内置代码生成器。`web-starter-project` 是参考模块；新增模块必须保持单体多模块边界，并继续让 Web 与 MCP 共用同一业务 Service、事务、实时 RBAC 和审计。
+V2 推荐使用 `web-starter-tooling` 的声明式模块生成器；本指南同时保留人工复制的评审边界。生成器只接受固定 JSON schema，不加载动态模板或执行声明内容。`web-starter-project` 仍是参考模块；无论生成还是人工复制，都必须保持单体多模块边界，并继续让 Web 与 MCP 共用同一业务 Service、事务、实时 RBAC 和审计。
 
 下文用 `asset` 举例：Maven 模块 `web-starter-asset`、Java 包 `dev.webstarter.asset`、表 `biz_asset`、权限前缀 `asset:`、Web 路径 `/api/assets`。
+
+## 0. 推荐的声明式生成流程
+
+先创建只描述模块语义的 `module.asset.json`。也可以复制 [`docs/examples/module-declaration.example.json`](examples/module-declaration.example.json) 后修改：
+
+```json
+{
+  "schemaVersion": 1,
+  "name": "asset",
+  "label": "资产",
+  "plural": "assets",
+  "table": "biz_asset",
+  "route": "/assets",
+  "migrationVersion": "202607190001",
+  "permissionIdBase": 5100,
+  "menuId": 6100
+}
+```
+
+依次执行只读校验、零写入预览和事务生成：
+
+```bash
+./bin/web-starter module validate --workspace . --declaration module.asset.json
+./bin/web-starter module dry-run --workspace . --declaration module.asset.json
+./bin/web-starter module generate --workspace . --declaration module.asset.json
+```
+
+声明没有输出路径、文件路径、命令、模板或表达式能力；未知或重复字段、嵌套结构和非严格类型均拒绝。MCP 不属于声明内容，确需 MCP 时必须在命令上显式增加 `--with-mcp`。`validate` 与 `dry-run` 都复用完整冲突扫描但不写文件，`generate` 复用同一计划和工作区事务边界。
 
 ## 1. 复制前决定
 
@@ -23,7 +51,9 @@ V1 采用“可审计的复制规范”，不内置代码生成器。`web-starte
 
 ## 2. 后端模块
 
-1. 复制 `web-starter-project` 为 `web-starter-asset`。
+以下步骤用于审查生成结果，或在生成器固定模型不适用时进行人工复制：
+
+1. 复制 `web-starter-project` 为 `web-starter-asset`，或审查生成出的 `web-starter-asset`。
 2. 只在新目录内修改 `artifactId`、包名、类名、REST 路径、权限常量和表名。
 3. 保留以下分层；Controller 不直接调用 Mapper：
 
@@ -62,8 +92,9 @@ dev.webstarter.asset
 - Controller 可以做请求级权限提示，但 Service 必须再次执行权限校验；MCP 不能绕过 Service。
 - REST 与 MCP 使用相同的 `asset:*` 权限，最终授权是主体实时 RBAC 与 Token Scope 的交集。
 - 创建、更新、删除及其成功操作审计必须在同一数据库事务提交或回滚。
-- 如果模块会暴露 MCP 写 Tool，成功操作审计放在 Service 中，使 REST 与 MCP 共用；REST 审计过滤器仅补写失败记录，并把该 REST 前缀加入 `SERVICE_AUDITED_PREFIXES`，避免重复成功日志。
-- 如果模块仅有 Web API，可由 `ManagementOperationAuditFilter` 负责成功与失败审计，并把路径加入 `AUDITED_PREFIXES`；Service 不再重复写成功日志。
+- 每个业务模块通过 Spring Bean 实现 `OperationAuditRouteContributor`，贡献固定 REST 前缀、模块、资源类型和成功审计归属；不要修改 Admin 过滤器源码或维护集中式路径列表。
+- 生成模块固定使用 `OperationAuditRoute.serviceOwned(...)`：成功审计由共享 Service 在业务事务中写入，REST 审计过滤器仅在 4xx/异常回滚后用独立事务补写失败记录，避免 REST 与 MCP 重复成功日志。
+- 人工实现且明确永不提供 MCP 写 Tool 的 Web-only 资源可以使用 `OperationAuditRoute.filterOwned(...)`，由过滤器在外层事务内写成功审计；此时 Service 不得重复写成功日志。归属变更必须同步补充去重与回滚测试。
 - 每个错误响应和审计记录保留 Trace ID，不记录请求密码、明文 Token、OAuth Client Secret 或完整授权码。
 
 ## 5. 前端接入
@@ -72,10 +103,10 @@ dev.webstarter.asset
 
 1. `src/types/models.ts`：实体、分页和写入 DTO；所有数据库 ID 只使用 `string`，不引入 `number | string` 兼容类型，也不做 `Number(id)`。
 2. `src/api/<module>.ts`：列表、详情、创建、更新、删除；所有写请求设 `csrf: true`。
-3. `src/views/<Module>View.vue`：加载、空数据、错误、校验、409 乐观锁和删除确认。
-4. `src/router/index.ts`：路由、页面标题、菜单 ID 和页面权限。
-5. `src/constants/menu.ts` 与 `src/components/SidebarNav.vue`：仅在数据库菜单与前端静态映射都允许时展示。
-6. `src/api/contracts.spec.ts`、路由守卫和权限测试：固定请求字段、CSRF、菜单/权限交集及直接路由 403。
+3. `src/views/<Module>View.vue` 或 `src/features/<module>/<Module>View.vue`：使用 `useStandardCrudPage` 统一加载、空数据、错误、URL 查询/分页、校验、409 乐观锁和删除确认。
+4. `src/navigation/manifest.ts`：只新增一条类型化导航记录；路由、侧栏、面包屑和命令搜索均由它派生，禁止分别修改四份清单。
+5. `src/constants/menu.ts`：登记与数据库菜单一致的菜单 ID；页面权限与菜单 ID 的交集仍由统一导航记录和路由守卫执行。
+6. API 契约测试、路由守卫和权限测试：固定请求字段、CSRF、菜单/权限交集及直接路由 403；需要进入私有管理 API 公共契约的模块同时扩展 `web-starter-web/contracts/private-api.openapi.json` 并执行 `pnpm contract:write` 后审查生成差异。
 
 集合路由可能与 Vite 输出目录同名，例如业务路由 `/assets` 与静态目录 `/assets/`。私有 Nginx 的 SPA fallback 必须保持 `try_files $uri /index.html`，静态扩展名由独立 location 处理；不要恢复 `$uri/` 探测，否则同名业务路由会被重定向到物理目录。
 
@@ -100,6 +131,8 @@ V1 的七个 Tool 是冻结契约。新增 Tool 必须先更新验收基线，�
 - 审计：成功与业务同事务；失败回滚后由独立事务记录；没有重复成功行。
 - 前端：API Contract、类型、路由/按钮权限、生产构建和真实浏览器。
 - MCP（若有）：官方 SDK initialize/list/call、RBAC/Scope 正反交叉和审计读回。
+
+生成器会默认创建独立的 `*ServiceImplTest`、`*ControllerTest` 和 `*OperationAuditRouteContributorTest`，作为权限/审计、Service 接口与实现 `@Valid` 约束一致性、Controller 委托以及分段安全审计路由的最小可编译起点；它们不替代上述真实数据库、Spring Security、浏览器或协议运行时验收，模块扩展行为时必须同步扩展测试。
 
 推荐门禁：
 

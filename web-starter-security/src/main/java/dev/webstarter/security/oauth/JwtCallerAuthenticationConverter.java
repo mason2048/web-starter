@@ -14,6 +14,7 @@ import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.core.trace.TraceContext;
 import dev.webstarter.security.auth.CallerAuthenticationToken;
 import dev.webstarter.security.auth.CredentialSubjectResolver;
+import dev.webstarter.security.auth.ResolvedCredentialSubject;
 
 public final class JwtCallerAuthenticationConverter
         implements Converter<Jwt, AbstractAuthenticationToken> {
@@ -34,10 +35,15 @@ public final class JwtCallerAuthenticationConverter
             throw new InvalidBearerTokenException("OAuth token subject is invalid");
         }
         String subjectType = jwt.getClaimAsString("subject_type");
-        CurrentCaller subject = ("SERVICE_ACCOUNT".equals(subjectType)
+        ResolvedCredentialSubject resolved = ("SERVICE_ACCOUNT".equals(subjectType)
                 ? subjectResolver.resolveServiceAccount(subjectId)
                 : subjectResolver.resolveUser(subjectId))
                 .orElseThrow(() -> new InvalidBearerTokenException("OAuth subject is unavailable"));
+        long tokenEpoch = readSecurityEpoch(jwt.getClaim("sepoch"));
+        if (tokenEpoch != resolved.securityEpoch()) {
+            throw new InvalidBearerTokenException("OAuth token subject version is stale");
+        }
+        CurrentCaller subject = resolved.caller();
         Set<String> scopes = readScopes(jwt.getClaim("scope"));
         CurrentCaller caller = new CurrentCaller(
                 subject.callerType(), subject.subjectId(), subject.username(), subject.displayName(),
@@ -47,7 +53,25 @@ public final class JwtCallerAuthenticationConverter
         var authorities = caller.permissions().stream()
                 .map(permission -> new SimpleGrantedAuthority("PERM_" + permission))
                 .toList();
-        return CallerAuthenticationToken.authenticated(caller, authorities);
+        return CallerAuthenticationToken.authenticated(caller, resolved.securityEpoch(), authorities);
+    }
+
+    private static long readSecurityEpoch(Object claim) {
+        if (claim == null) {
+            return 0;
+        }
+        if (claim instanceof Number number) {
+            return number.longValue();
+        }
+        if (claim instanceof String value) {
+            try {
+                return Long.parseLong(value);
+            }
+            catch (NumberFormatException ignored) {
+                // handled below
+            }
+        }
+        throw new InvalidBearerTokenException("OAuth token subject version is invalid");
     }
 
     private static Set<String> readScopes(Object claim) {

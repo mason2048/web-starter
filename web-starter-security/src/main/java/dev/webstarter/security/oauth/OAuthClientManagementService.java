@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
@@ -12,14 +13,16 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
+import dev.webstarter.security.config.WebStarterSecurityProperties;
 import dev.webstarter.security.persistence.mapper.OAuthClientMapper;
 import dev.webstarter.security.persistence.model.OAuthClientRecord;
 import dev.webstarter.security.token.CredentialScopePolicy;
 import dev.webstarter.security.token.IpRestriction;
 import dev.webstarter.security.token.ScopeCodec;
 
-public final class OAuthClientManagementService {
+public class OAuthClientManagementService {
 
     private static final Set<String> SUPPORTED_GRANTS = Set.of(
             "authorization_code", "refresh_token", "client_credentials");
@@ -31,12 +34,24 @@ public final class OAuthClientManagementService {
     private final CredentialScopePolicy scopePolicy;
     private final SecureRandom secureRandom;
     private final Clock clock;
+    private final Duration defaultSecretOverlap;
+    private final Duration maximumSecretOverlap;
 
     public OAuthClientManagementService(
             OAuthClientMapper mapper,
             PasswordEncoder passwordEncoder,
             CredentialScopePolicy scopePolicy) {
-        this(mapper, passwordEncoder, scopePolicy, new SecureRandom(), Clock.systemUTC());
+        this(mapper, passwordEncoder, scopePolicy, new SecureRandom(), Clock.systemUTC(),
+                Duration.ofMinutes(15), Duration.ofHours(24));
+    }
+
+    public OAuthClientManagementService(
+            OAuthClientMapper mapper,
+            PasswordEncoder passwordEncoder,
+            CredentialScopePolicy scopePolicy,
+            WebStarterSecurityProperties properties) {
+        this(mapper, passwordEncoder, scopePolicy, new SecureRandom(), Clock.systemUTC(),
+                properties.oauthClientSecretOverlap(), properties.oauthClientSecretMaxOverlap());
     }
 
     OAuthClientManagementService(
@@ -45,11 +60,25 @@ public final class OAuthClientManagementService {
             CredentialScopePolicy scopePolicy,
             SecureRandom secureRandom,
             Clock clock) {
+        this(mapper, passwordEncoder, scopePolicy, secureRandom, clock,
+                Duration.ofMinutes(15), Duration.ofHours(24));
+    }
+
+    OAuthClientManagementService(
+            OAuthClientMapper mapper,
+            PasswordEncoder passwordEncoder,
+            CredentialScopePolicy scopePolicy,
+            SecureRandom secureRandom,
+            Clock clock,
+            Duration defaultSecretOverlap,
+            Duration maximumSecretOverlap) {
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
         this.scopePolicy = scopePolicy;
         this.secureRandom = secureRandom;
         this.clock = clock;
+        this.defaultSecretOverlap = defaultSecretOverlap;
+        this.maximumSecretOverlap = maximumSecretOverlap;
     }
 
     public CreatedOAuthClient create(
@@ -70,7 +99,10 @@ public final class OAuthClientManagementService {
         String rawSecret = methods.contains("none") ? null : newSecret();
         Instant now = clock.instant();
         OAuthClientRecord record = new OAuthClientRecord(
-                UUID.randomUUID().toString(), clientId, rawSecret == null ? null : passwordEncoder.encode(rawSecret),
+                UUID.randomUUID().toString(), clientId,
+                rawSecret == null ? null : passwordEncoder.encode(rawSecret),
+                rawSecret == null ? null : newSecretVersion(),
+                null, null, null, null,
                 clientName, ScopeCodec.encode(methods), ScopeCodec.encode(grantTypes),
                 ScopeCodec.encodeLines(redirectUris), ScopeCodec.encode(validatedScopes), requireConsent,
                 true, serviceAccountId, true, now, now);
@@ -78,20 +110,55 @@ public final class OAuthClientManagementService {
         return new CreatedOAuthClient(record, rawSecret);
     }
 
+    @Transactional
     public CreatedOAuthClient rotateSecret(String id) {
+        return rotateSecret(id, defaultSecretOverlap);
+    }
+
+    @Transactional
+    public CreatedOAuthClient rotateSecret(String id, Duration overlap) {
         OAuthClientRecord record = required(id);
         if (ScopeCodec.decode(record.authenticationMethods()).contains("none")) {
             throw new IllegalArgumentException("Public OAuth clients do not have a client secret");
         }
+        validateOverlap(overlap);
         String rawSecret = newSecret();
         String encodedSecret = passwordEncoder.encode(rawSecret);
-        mapper.updateSecret(id, encodedSecret);
+        String secretVersion = newSecretVersion();
+        Instant rotatedAt = clock.instant();
+        Instant retiringExpiresAt = rotatedAt.plus(overlap);
+        if (mapper.rotateSecret(
+                id, record.clientSecretHash(), record.clientSecretVersion(), encodedSecret, secretVersion,
+                retiringExpiresAt, rotatedAt) != 1) {
+            throw new IllegalStateException("OAuth client secret changed concurrently; retry rotation");
+        }
         OAuthClientRecord updated = new OAuthClientRecord(
-                record.id(), record.clientId(), encodedSecret, record.clientName(),
+                record.id(), record.clientId(), encodedSecret, secretVersion,
+                record.clientSecretHash(), record.clientSecretVersion(), retiringExpiresAt, rotatedAt,
+                record.clientName(),
                 record.authenticationMethods(), record.grantTypes(), record.redirectUris(), record.scopes(),
                 record.requireConsent(), record.requirePkce(), record.serviceAccountId(), record.enabled(),
-                record.createdAt(), clock.instant());
+                record.createdAt(), rotatedAt);
         return new CreatedOAuthClient(updated, rawSecret);
+    }
+
+    @Transactional
+    public OAuthClientRecord revokeRetiringSecret(String id) {
+        OAuthClientRecord record = required(id);
+        if (record.retiringClientSecretHash() == null) {
+            throw new IllegalArgumentException("OAuth client does not have a retiring secret");
+        }
+        Instant revokedAt = clock.instant();
+        if (mapper.revokeRetiringSecret(
+                id, record.retiringClientSecretHash(), record.retiringClientSecretVersion(), revokedAt) != 1) {
+            throw new IllegalStateException("OAuth retiring client secret changed concurrently; retry revocation");
+        }
+        return new OAuthClientRecord(
+                record.id(), record.clientId(), record.clientSecretHash(), record.clientSecretVersion(),
+                null, null, null, record.clientSecretRotatedAt(), record.clientName(),
+                record.authenticationMethods(), record.grantTypes(), record.redirectUris(), record.scopes(),
+                record.requireConsent(), record.requirePkce(), record.serviceAccountId(), record.enabled(),
+                record.createdAt(), revokedAt);
     }
 
     public OAuthClientRecord update(
@@ -114,7 +181,9 @@ public final class OAuthClientManagementService {
                     "OAuth client authentication class cannot be changed; create a new client instead");
         }
         OAuthClientRecord updated = new OAuthClientRecord(
-                current.id(), current.clientId(), current.clientSecretHash(), clientName.trim(),
+                current.id(), current.clientId(), current.clientSecretHash(), current.clientSecretVersion(),
+                current.retiringClientSecretHash(), current.retiringClientSecretVersion(),
+                current.retiringClientSecretExpiresAt(), current.clientSecretRotatedAt(), clientName.trim(),
                 ScopeCodec.encode(newMethods), ScopeCodec.encode(grantTypes), ScopeCodec.encodeLines(redirectUris),
                 ScopeCodec.encode(validatedScopes), requireConsent, true, serviceAccountId, enabled,
                 current.createdAt(), clock.instant());
@@ -239,6 +308,21 @@ public final class OAuthClientManagementService {
         byte[] value = new byte[32];
         secureRandom.nextBytes(value);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
+    }
+
+    private String newSecretVersion() {
+        byte[] value = new byte[12];
+        secureRandom.nextBytes(value);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
+    }
+
+    private void validateOverlap(Duration overlap) {
+        if (overlap == null || overlap.isZero() || overlap.isNegative()
+                || overlap.compareTo(maximumSecretOverlap) > 0) {
+            throw new IllegalArgumentException(
+                    "OAuth client secret overlap must be positive and no longer than "
+                            + maximumSecretOverlap);
+        }
     }
 
     public record CreatedOAuthClient(OAuthClientRecord client, String rawSecret) {

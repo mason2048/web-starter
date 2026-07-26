@@ -1,6 +1,7 @@
 package dev.webstarter.mcp.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,8 +13,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import io.modelcontextprotocol.json.McpJsonDefaults;
+import io.modelcontextprotocol.json.schema.jackson3.JacksonJsonSchemaValidatorSupplier;
 import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.spec.McpSchema.Tool;
 
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +25,7 @@ import dev.webstarter.core.security.CallerContext;
 import dev.webstarter.core.security.CallerType;
 import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.core.security.PermissionService;
+import dev.webstarter.mcp.governance.McpToolRisk;
 import dev.webstarter.project.dto.ProjectResponse;
 import dev.webstarter.project.service.ProjectService;
 import dev.webstarter.system.audit.AuditLogRecorder;
@@ -29,6 +33,57 @@ import dev.webstarter.system.audit.McpCallAuditEvent;
 import dev.webstarter.system.service.AuditQueryService;
 
 class McpToolCatalogTest {
+
+    @Test
+    void mergesStaticContributorsAndKeepsPermissionAndRiskMetadataAligned() {
+        SyncToolSpecification specification = SyncToolSpecification.builder()
+                .tool(Tool.builder()
+                        .name("asset.list")
+                        .description("List assets")
+                        .inputSchema(Map.of(
+                                "type", "object",
+                                "properties", Map.of(),
+                                "required", List.of(),
+                                "additionalProperties", false))
+                        .build())
+                .callHandler((exchange, request) -> null)
+                .build();
+        McpToolContributor contributor = () -> List.of(new McpToolContribution(
+                specification, "asset:list", McpToolRisk.READ));
+        McpToolCatalog catalog = new McpToolCatalog(
+                mock(ProjectService.class), mock(AuditQueryService.class),
+                mock(McpInvocationService.class), mock(McpIdempotencyService.class),
+                McpJsonDefaults.getMapper(), List.of(contributor));
+
+        assertThat(catalog.specifications()).extracting(item -> item.tool().name())
+                .endsWith("asset.list");
+        assertThat(catalog.permissionForRegisteredTool("asset.list")).isEqualTo("asset:list");
+        assertThat(catalog.riskForRegisteredTool("asset.list")).isEqualTo(McpToolRisk.READ);
+        assertThat(catalog.permissionForRegisteredTool("unknown.tool")).isNull();
+        assertThat(catalog.riskForRegisteredTool("unknown.tool")).isEqualTo(McpToolRisk.PROTOCOL);
+    }
+
+    @Test
+    void rejectsContributorNamesThatCollideWithBuiltInsOrOtherModules() {
+        SyncToolSpecification specification = SyncToolSpecification.builder()
+                .tool(Tool.builder()
+                        .name("project.list")
+                        .description("Collision")
+                        .inputSchema(Map.of("type", "object", "properties", Map.of(),
+                                "required", List.of(), "additionalProperties", false))
+                        .build())
+                .callHandler((exchange, request) -> null)
+                .build();
+        McpToolContributor contributor = () -> List.of(new McpToolContribution(
+                specification, "asset:list", McpToolRisk.READ));
+
+        assertThatThrownBy(() -> new McpToolCatalog(
+                mock(ProjectService.class), mock(AuditQueryService.class),
+                mock(McpInvocationService.class), mock(McpIdempotencyService.class),
+                McpJsonDefaults.getMapper(), List.of(contributor)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Duplicate MCP Tool name");
+    }
 
     @Test
     void exposesOnlyTheSevenReviewedToolNames() {
@@ -57,11 +112,63 @@ class McpToolCatalogTest {
         assertThat(objectMap(properties.get("name"))).containsEntry("maxLength", 120);
         assertThat(objectMap(properties.get("code")))
                 .containsEntry("maxLength", 64)
-                .containsEntry("pattern", "[A-Za-z][A-Za-z0-9_-]{1,63}");
+                .containsEntry("pattern", "^[A-Za-z][A-Za-z0-9_-]{1,63}$");
         assertThat(objectMap(properties.get("description"))).containsEntry("maxLength", 2000);
         assertThat(objectMap(properties.get("ownerId")))
                 .containsEntry("type", "string")
                 .containsEntry("pattern", McpIdentifierContract.POSITIVE_LONG_PATTERN);
+        assertThat(objectMap(properties.get(McpIdempotencyService.ARGUMENT_NAME)))
+                .containsEntry("type", "string")
+                .containsEntry("minLength", 16)
+                .containsEntry("maxLength", 128)
+                .containsEntry("pattern", "^[A-Za-z0-9._:-]+$");
+        List<?> createOutputs = (List<?>) create.tool().outputSchema().get("oneOf");
+        assertThat(objectMap(objectMap(createOutputs.getFirst()).get("properties")))
+                .containsKeys("id", "name", "code", "ownerId", "status", "version");
+        assertThat(objectMap(objectMap(createOutputs.get(1)).get("properties")))
+                .containsKeys("code", "message", "traceId");
+        assertThat(objectMap(objectMap(objectMap(createOutputs.get(1)).get("properties")).get("code")))
+                .containsEntry("pattern", McpToolCatalog.TOOL_ERROR_CODE_PATTERN);
+        assertThat(create.tool().annotations().readOnlyHint()).isFalse();
+
+        SyncToolSpecification audit = catalog.specifications().stream()
+                .filter(item -> "audit.list".equals(item.tool().name()))
+                .findFirst().orElseThrow();
+        Map<String, Object> auditProperties = objectMap(audit.tool().inputSchema().get("properties"));
+        assertThat(auditProperties).containsKeys("actorName", "toolName", "result", "traceId");
+        assertThat(objectMap(auditProperties.get("traceId")))
+                .containsEntry("minLength", 8)
+                .containsEntry("maxLength", 64)
+                .containsEntry("pattern", "^[A-Za-z0-9._-]{8,64}$");
+        assertThat(create.tool().annotations().destructiveHint()).isFalse();
+        assertThat(create.tool().annotations().idempotentHint()).isFalse();
+
+        SyncToolSpecification remove = catalog.specifications().stream()
+                .filter(item -> "project.remove".equals(item.tool().name()))
+                .findFirst().orElseThrow();
+        List<?> removeOutputs = (List<?>) remove.tool().outputSchema().get("oneOf");
+        assertThat(objectMap(objectMap(removeOutputs.getFirst()).get("properties")))
+                .containsKeys("id", "removed");
+        assertThat(remove.tool().annotations().destructiveHint()).isTrue();
+        assertThat(remove.tool().annotations().idempotentHint()).isTrue();
+
+        SyncToolSpecification update = catalog.specifications().stream()
+                .filter(item -> "project.update".equals(item.tool().name()))
+                .findFirst().orElseThrow();
+        assertThat(update.tool().annotations().destructiveHint()).isTrue();
+        assertThat(update.tool().annotations().idempotentHint()).isTrue();
+
+        var successValidation = new JacksonJsonSchemaValidatorSupplier().get().validate(
+                create.tool().outputSchema(),
+                Map.of(
+                        "id", "42",
+                        "name", "Example",
+                        "code", "EXAMPLE",
+                        "ownerId", "7",
+                        "status", "PLANNING",
+                        "version", 0,
+                        "createdAt", "2026-07-19T10:00:00"));
+        assertThat(successValidation.valid()).as(successValidation.errorMessage()).isTrue();
 
         for (String toolName : List.of("project.get", "project.update", "project.remove")) {
             SyncToolSpecification idTool = catalog.specifications().stream()
@@ -108,6 +215,7 @@ class McpToolCatalogTest {
                 projectService,
                 mock(AuditQueryService.class),
                 invocation,
+                mock(McpIdempotencyService.class),
                 McpJsonDefaults.getMapper());
         SyncToolSpecification specification = catalog.specifications().stream()
                 .filter(item -> "project.list".equals(item.tool().name()))
@@ -148,7 +256,11 @@ class McpToolCatalogTest {
         McpInvocationService invocation = new McpInvocationService(
                 callerContext, permissionService, auditLogRecorder, failureAuditService);
         McpToolCatalog catalog = new McpToolCatalog(
-                projectService, mock(AuditQueryService.class), invocation, McpJsonDefaults.getMapper());
+                projectService,
+                mock(AuditQueryService.class),
+                invocation,
+                mock(McpIdempotencyService.class),
+                McpJsonDefaults.getMapper());
         SyncToolSpecification specification = catalog.specifications().stream()
                 .filter(item -> "project.create".equals(item.tool().name()))
                 .findFirst()
@@ -161,6 +273,9 @@ class McpToolCatalogTest {
         assertThat(result.isError()).isTrue();
         assertThat(objectMap(result.structuredContent()))
                 .containsEntry("code", "INVALID_ARGUMENT");
+        var outputValidation = new JacksonJsonSchemaValidatorSupplier().get().validate(
+                specification.tool().outputSchema(), result.structuredContent());
+        assertThat(outputValidation.valid()).as(outputValidation.errorMessage()).isTrue();
         verify(permissionService).requirePermission(caller, "project:create");
         verify(projectService, never()).create(org.mockito.ArgumentMatchers.any());
         verify(failureAuditService).record(org.mockito.ArgumentMatchers.argThat(event ->
@@ -172,6 +287,7 @@ class McpToolCatalogTest {
                 mock(ProjectService.class),
                 mock(AuditQueryService.class),
                 invocationService,
+                mock(McpIdempotencyService.class),
                 McpJsonDefaults.getMapper());
     }
 

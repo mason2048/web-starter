@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v2-tooling-lifecycle-runtime-summary.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "acceptanceIds", "status", "observedAt", "candidate", "runtime", "checks", "evidence"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceIds": {"const": ["AC-02", "AC-37", "V2-AC-16", "V2-AC-17"]},
+    "status": {"const": "PASS"},
+    "observedAt": {"type": "string", "format": "date-time"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gitCommit", "gitTree", "tagObject", "releaseVersion", "releaseTag"],
+      "properties": {
+        "gitCommit": {"$ref": "#/$defs/objectId"},
+        "gitTree": {"$ref": "#/$defs/objectId"},
+        "tagObject": {"$ref": "#/$defs/objectId"},
+        "releaseVersion": {"$ref": "#/$defs/version"},
+        "releaseTag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composeProject", "images", "runtimeIdentitySha256", "businessPersistence", "bootstrapCredential"],
+      "properties": {
+        "composeProject": {"type": "string", "pattern": "^web-starter-tooling-[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$"},
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app", "nginx", "mysql", "redis"],
+          "properties": {
+            "app": {"$ref": "#/$defs/image"},
+            "nginx": {"$ref": "#/$defs/image"},
+            "mysql": {"$ref": "#/$defs/image"},
+            "redis": {"$ref": "#/$defs/image"}
+          }
+        },
+        "runtimeIdentitySha256": {"$ref": "#/$defs/sha256"},
+        "businessPersistence": {"$ref": "#/$defs/businessPersistence"},
+        "bootstrapCredential": {"$ref": "#/$defs/bootstrapCredential"}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bootstrapAdminLoginPassed", "bootstrapPasswordRemovedBeforeRestart",
+        "existingAdminPasswordUnchanged", "bootstrapSecretAbsentFromRuntimeLogs",
+        "doctorExactInventory", "doctorSecretsRedacted", "doctorActionableResults",
+        "upWaitedForAllServices", "defaultDownPreservedVolumes",
+        "rejectedDeletionWasSideEffectFree", "restartUsedPreservedVolumes",
+        "businessDataPersistedAcrossRestart",
+        "confirmedDeletionRemovedAllResources", "runtimeImagesMatchReleaseIdentity"
+      ],
+      "properties": {
+        "bootstrapAdminLoginPassed": {"const": "PASS"},
+        "bootstrapPasswordRemovedBeforeRestart": {"const": "PASS"},
+        "existingAdminPasswordUnchanged": {"const": "PASS"},
+        "bootstrapSecretAbsentFromRuntimeLogs": {"const": "PASS"},
+        "doctorExactInventory": {"const": "PASS"},
+        "doctorSecretsRedacted": {"const": "PASS"},
+        "doctorActionableResults": {"const": "PASS"},
+        "upWaitedForAllServices": {"const": "PASS"},
+        "defaultDownPreservedVolumes": {"const": "PASS"},
+        "rejectedDeletionWasSideEffectFree": {"const": "PASS"},
+        "restartUsedPreservedVolumes": {"const": "PASS"},
+        "businessDataPersistedAcrossRestart": {"const": "PASS"},
+        "confirmedDeletionRemovedAllResources": {"const": "PASS"},
+        "runtimeImagesMatchReleaseIdentity": {"const": "PASS"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reportSha256", "sourceSha256"],
+      "properties": {
+        "reportSha256": {"$ref": "#/$defs/sha256"},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/rehearse_tooling_lifecycle.py",
+            "scripts/validate_tooling_lifecycle_evidence.py",
+            "security/v2-tooling-lifecycle-runtime-summary.schema.json",
+            "bin/web-starter",
+            "compose.yaml",
+            "compose.dev.yaml",
+            "web-starter-tooling/src/main/java/dev/webstarter/tooling/dev/DeveloperCommands.java",
+            "web-starter-tooling/src/main/java/dev/webstarter/tooling/cli/WebStarterCli.java",
+            "docs/tooling.md",
+            "docs/tooling-lifecycle-runtime-evidence.md"
+          ],
+          "properties": {
+            "scripts/rehearse_tooling_lifecycle.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_tooling_lifecycle_evidence.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-tooling-lifecycle-runtime-summary.schema.json": {"$ref": "#/$defs/sha256"},
+            "bin/web-starter": {"$ref": "#/$defs/sha256"},
+            "compose.yaml": {"$ref": "#/$defs/sha256"},
+            "compose.dev.yaml": {"$ref": "#/$defs/sha256"},
+            "web-starter-tooling/src/main/java/dev/webstarter/tooling/dev/DeveloperCommands.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-tooling/src/main/java/dev/webstarter/tooling/cli/WebStarterCli.java": {"$ref": "#/$defs/sha256"},
+            "docs/tooling.md": {"$ref": "#/$defs/sha256"},
+            "docs/tooling-lifecycle-runtime-evidence.md": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "objectId": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "businessPersistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixtureId", "fixtureCode", "rowCount", "rowSha256"],
+      "properties": {
+        "fixtureId": {"type": "integer", "minimum": 8000000000000000000, "maximum": 8099999999999999999},
+        "fixtureCode": {"type": "string", "pattern": "^TOOLING_[0-9A-F]{16}$"},
+        "rowCount": {"const": 1},
+        "rowSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bootstrapCredential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firstLoginStatus", "secondLoginStatus", "passwordHashSha256",
+        "environmentPasswordRemovedBeforeRestart", "runtimeLogSecretMatches",
+        "runtimeLogSha256"
+      ],
+      "properties": {
+        "firstLoginStatus": {"const": 200},
+        "secondLoginStatus": {"const": 200},
+        "passwordHashSha256": {"$ref": "#/$defs/sha256"},
+        "environmentPasswordRemovedBeforeRestart": {"const": true},
+        "runtimeLogSecretMatches": {"const": 0},
+        "runtimeLogSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["first", "second"],
+          "properties": {
+            "first": {"$ref": "#/$defs/sha256"},
+            "second": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "imageId"],
+      "properties": {
+        "reference": {"type": "string", "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"},
+        "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -8,7 +8,9 @@ public final class ApiCodes {
     public static final int FORBIDDEN = 4003;
     public static final int NOT_FOUND = 4004;
     public static final int CONFLICT = 4090;
+    public static final int TOO_MANY_REQUESTS = 4290;
     public static final int INTERNAL_ERROR = 5000;
+    public static final int SERVICE_UNAVAILABLE = 5030;
 
     private ApiCodes() {
     }

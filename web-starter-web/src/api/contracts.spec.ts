@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { request } from './http'
 import { configsApi, menusApi, rolesApi, usersApi } from './admin'
 import { listProjectOwners, removeProject, updateProject } from './projects'
-import { oauthClientsApi, personalTokensApi, serviceAccountsApi } from './security'
+import { accountSecurityApi, oauthClientsApi, personalTokensApi, serviceAccountsApi } from './security'
 
 vi.mock('./http', () => ({ request: vi.fn() }))
 
@@ -86,6 +86,38 @@ describe('backend request contracts', () => {
       data: { password: 'a-new-long-password' },
       csrf: true,
     })
+  })
+
+  it('uses the self-service password and opaque Session management contracts', () => {
+    accountSecurityApi.changePassword({
+      currentPassword: 'current-password',
+      newPassword: 'a-new-long-password',
+    })
+    accountSecurityApi.listSessions()
+    accountSecurityApi.revokeSession('opaque/session reference')
+    accountSecurityApi.revokeOtherSessions()
+    accountSecurityApi.securityLogout()
+
+    expect(requestMock.mock.calls).toEqual([
+      [
+        {
+          url: '/security/me/password',
+          method: 'PUT',
+          data: { currentPassword: 'current-password', newPassword: 'a-new-long-password' },
+          csrf: true,
+        },
+      ],
+      [{ url: '/security/me/sessions', method: 'GET' }],
+      [
+        {
+          url: '/security/me/sessions/opaque%2Fsession%20reference',
+          method: 'DELETE',
+          csrf: true,
+        },
+      ],
+      [{ url: '/security/me/sessions/others', method: 'DELETE', csrf: true }],
+      [{ url: '/security/me/security-logout', method: 'POST', csrf: true }],
+    ])
   })
 
   it('uses backend field names for menu and config payloads', () => {
@@ -196,6 +228,7 @@ describe('backend request contracts', () => {
       enabled: false,
     })
     oauthClientsApi.rotateSecret('client-record-id')
+    oauthClientsApi.revokeRetiringSecret('client-record-id')
 
     expect(requestMock).toHaveBeenNthCalledWith(1, {
       url: '/security/oauth-clients',
@@ -221,6 +254,11 @@ describe('backend request contracts', () => {
     expect(requestMock).toHaveBeenNthCalledWith(3, {
       url: '/security/oauth-clients/client-record-id/rotate-secret',
       method: 'POST',
+      csrf: true,
+    })
+    expect(requestMock).toHaveBeenNthCalledWith(4, {
+      url: '/security/oauth-clients/client-record-id/retiring-secret',
+      method: 'DELETE',
       csrf: true,
     })
   })

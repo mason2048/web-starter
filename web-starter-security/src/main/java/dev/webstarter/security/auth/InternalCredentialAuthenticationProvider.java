@@ -34,10 +34,14 @@ public final class InternalCredentialAuthenticationProvider implements Authentic
         if (credential == null) {
             throw new BadCredentialsException("Invalid internal credential");
         }
-        CurrentCaller subject = (credential.credentialType() == CredentialType.PERSONAL_ACCESS_TOKEN
+        ResolvedCredentialSubject resolved = (credential.credentialType() == CredentialType.PERSONAL_ACCESS_TOKEN
                 ? subjectResolver.resolveUser(credential.subjectId())
                 : subjectResolver.resolveServiceAccount(credential.subjectId()))
                 .orElseThrow(() -> new BadCredentialsException("Credential subject is unavailable"));
+        if (credential.subjectSecurityEpoch() != resolved.securityEpoch()) {
+            throw new BadCredentialsException("Credential subject is unavailable");
+        }
+        CurrentCaller subject = resolved.caller();
         Set<String> scopes = ScopeCodec.decode(credential.scopes());
         CurrentCaller caller = new CurrentCaller(
                 subject.callerType(),
@@ -53,7 +57,7 @@ public final class InternalCredentialAuthenticationProvider implements Authentic
         var authorities = caller.permissions().stream()
                 .map(permission -> new SimpleGrantedAuthority("PERM_" + permission))
                 .toList();
-        return CallerAuthenticationToken.authenticated(caller, authorities);
+        return CallerAuthenticationToken.authenticated(caller, resolved.securityEpoch(), authorities);
     }
 
     @Override

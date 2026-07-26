@@ -42,6 +42,7 @@ public class HashingOAuth2AuthorizationService implements OAuth2AuthorizationSer
     private static final String HASH_MARKER = "hmac$";
     public static final String SUBJECT_ID_ATTRIBUTE = "webstarter.subject-id";
     public static final String SUBJECT_TYPE_ATTRIBUTE = "webstarter.subject-type";
+    public static final String SUBJECT_SECURITY_EPOCH_ATTRIBUTE = "webstarter.subject-security-epoch";
     static final String PRESENTED_REFRESH_HASH_ATTRIBUTE =
             "webstarter.transient-presented-refresh-hash";
     static final String PRESENTED_REFRESH_GENERATION_ATTRIBUTE =
@@ -177,6 +178,14 @@ public class HashingOAuth2AuthorizationService implements OAuth2AuthorizationSer
                 if (principal.getPrincipal() instanceof dev.webstarter.security.auth.CallerPrincipal caller) {
                     builder.attribute(SUBJECT_ID_ATTRIBUTE, caller.caller().subjectId());
                     builder.attribute(SUBJECT_TYPE_ATTRIBUTE, caller.caller().callerType().name());
+                    // JdbcOAuth2AuthorizationService stores attributes as Object-valued
+                    // polymorphic JSON. Spring Security's strict Jackson 3 validator
+                    // intentionally rejects a java.lang.Long type id on read-back.
+                    // A decimal string is stable across Jackson implementations and is
+                    // parsed explicitly by the token customizer.
+                    builder.attribute(
+                            SUBJECT_SECURITY_EPOCH_ATTRIBUTE,
+                            Long.toString(caller.securityEpoch()));
                 }
             }
             else {

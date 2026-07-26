@@ -15,6 +15,7 @@ public final class SystemUserPrincipal
     private static final long serialVersionUID = 1L;
 
     private final CurrentCaller caller;
+    private final long securityEpoch;
     private String passwordHash;
     private final boolean enabled;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -24,7 +25,17 @@ public final class SystemUserPrincipal
             String passwordHash,
             boolean enabled,
             Collection<? extends GrantedAuthority> authorities) {
+        this(caller, passwordHash, enabled, authorities, 0);
+    }
+
+    public SystemUserPrincipal(
+            CurrentCaller caller,
+            String passwordHash,
+            boolean enabled,
+            Collection<? extends GrantedAuthority> authorities,
+            long securityEpoch) {
         this.caller = caller;
+        this.securityEpoch = securityEpoch;
         this.passwordHash = passwordHash;
         this.enabled = enabled;
         this.authorities = ListCopy.copy(authorities);
@@ -33,6 +44,11 @@ public final class SystemUserPrincipal
     @Override
     public CurrentCaller caller() {
         return caller;
+    }
+
+    @Override
+    public long securityEpoch() {
+        return securityEpoch;
     }
 
     @Override

@@ -29,6 +29,14 @@
           <p>使用管理员分配的账号进入系统</p>
         </header>
 
+        <el-alert
+          v-if="securityNotice"
+          class="security-result"
+          type="success"
+          :title="securityNotice"
+          :closable="false"
+          show-icon
+        />
         <RequestError :message="errorMessage" :trace-id="errorTraceId" />
 
         <el-form
@@ -79,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Connection, DocumentChecked, Lock, User, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules, type InputInstance } from 'element-plus'
@@ -97,6 +105,11 @@ const formRef = ref<FormInstance>()
 const passwordInput = ref<InputInstance>()
 const errorMessage = ref('')
 const errorTraceId = ref('')
+const securityNotice = computed(() => {
+  if (route.query.reason === 'password-changed') return '密码已修改，请使用新密码重新登录。'
+  if (route.query.reason === 'session-revoked') return '当前 Session 已退出，请重新登录。'
+  return ''
+})
 
 const rememberedUsername = auth.getRememberedUsername()
 const form = reactive({
@@ -253,6 +266,10 @@ async function submit(): Promise<void> {
 .login-box header {
   margin-bottom: 48px;
   text-align: center;
+}
+
+.security-result {
+  margin-bottom: 22px;
 }
 
 .login-box h2 {

@@ -6,28 +6,61 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 
+import org.springframework.transaction.annotation.Transactional;
+
+import dev.webstarter.security.persistence.mapper.AccessCredentialMapper;
+import dev.webstarter.security.persistence.mapper.OAuthTokenRegistryMapper;
 import dev.webstarter.security.persistence.mapper.ServiceAccountMapper;
 import dev.webstarter.security.persistence.model.ServiceAccountRecord;
 import dev.webstarter.system.domain.SysRole;
 import dev.webstarter.system.persistence.mapper.RoleMapper;
 
-public final class ServiceAccountService {
+public class ServiceAccountService {
 
     private final ServiceAccountMapper mapper;
     private final RoleMapper roleMapper;
+    private final AccessCredentialMapper credentialMapper;
+    private final OAuthTokenRegistryMapper oauthTokenRegistryMapper;
     private final Clock clock;
 
     public ServiceAccountService(ServiceAccountMapper mapper, RoleMapper roleMapper) {
-        this(mapper, roleMapper, Clock.systemUTC());
+        this(mapper, roleMapper, null, null, Clock.systemUTC());
+    }
+
+    public ServiceAccountService(
+            ServiceAccountMapper mapper,
+            RoleMapper roleMapper,
+            AccessCredentialMapper credentialMapper) {
+        this(mapper, roleMapper, credentialMapper, null, Clock.systemUTC());
+    }
+
+    public ServiceAccountService(
+            ServiceAccountMapper mapper,
+            RoleMapper roleMapper,
+            AccessCredentialMapper credentialMapper,
+            OAuthTokenRegistryMapper oauthTokenRegistryMapper) {
+        this(mapper, roleMapper, credentialMapper, oauthTokenRegistryMapper, Clock.systemUTC());
     }
 
     ServiceAccountService(ServiceAccountMapper mapper, RoleMapper roleMapper, Clock clock) {
+        this(mapper, roleMapper, null, null, clock);
+    }
+
+    ServiceAccountService(
+            ServiceAccountMapper mapper,
+            RoleMapper roleMapper,
+            AccessCredentialMapper credentialMapper,
+            OAuthTokenRegistryMapper oauthTokenRegistryMapper,
+            Clock clock) {
         this.mapper = mapper;
         this.roleMapper = roleMapper;
+        this.credentialMapper = credentialMapper;
+        this.oauthTokenRegistryMapper = oauthTokenRegistryMapper;
         this.clock = clock;
     }
 
@@ -45,11 +78,13 @@ public final class ServiceAccountService {
         Instant now = clock.instant();
         ServiceAccountRecord record = new ServiceAccountRecord(
                 IdWorker.getId(), normalizedCode, requireDisplayName(displayName), description,
-                true, ScopeCodec.encodeLongs(validatedRoleIds), operatorId, now, operatorId, now);
+                true, 0, null, ScopeCodec.encodeLongs(validatedRoleIds),
+                operatorId, now, operatorId, now);
         mapper.insert(record);
         return record;
     }
 
+    @Transactional
     public ServiceAccountRecord update(
             Long id,
             String displayName,
@@ -59,11 +94,26 @@ public final class ServiceAccountService {
             Long operatorId) {
         ServiceAccountRecord current = required(id);
         Set<Long> validatedRoleIds = validateRoleIds(roleIds);
+        String encodedRoleIds = ScopeCodec.encodeLongs(validatedRoleIds);
+        boolean rolesChanged = !Objects.equals(current.roleIds(), encodedRoleIds);
+        boolean disabledNow = current.enabled() && !enabled;
+        long securityEpoch = disabledNow ? current.securityEpoch() + 1 : current.securityEpoch();
+        Instant now = clock.instant();
         ServiceAccountRecord updated = new ServiceAccountRecord(
                 current.id(), current.code(), requireDisplayName(displayName), description,
-                enabled, ScopeCodec.encodeLongs(validatedRoleIds), current.createdBy(), current.createdAt(),
-                operatorId, clock.instant());
-        mapper.update(updated);
+                enabled, securityEpoch, disabledNow ? now : current.disabledAt(),
+                encodedRoleIds, current.createdBy(), current.createdAt(),
+                operatorId, now);
+        if (mapper.update(updated) == 0) {
+            throw new IllegalStateException("Service account was changed by another request");
+        }
+        if (disabledNow && credentialMapper != null) {
+            credentialMapper.revokeBySubject(
+                    CredentialType.SERVICE_ACCOUNT_TOKEN.name(), id, "SUBJECT_DISABLED", now);
+        }
+        if (rolesChanged && oauthTokenRegistryMapper != null) {
+            oauthTokenRegistryMapper.revokeServiceAccountAccessTokens(id, now);
+        }
         return updated;
     }
 
@@ -79,9 +129,19 @@ public final class ServiceAccountService {
         return mapper.findAll();
     }
 
+    @Transactional
     public void disable(Long id, Long operatorId) {
-        if (mapper.disable(id, operatorId, clock.instant()) == 0) {
-            throw new IllegalArgumentException("Service account does not exist");
+        ServiceAccountRecord current = required(id);
+        if (!current.enabled()) {
+            return;
+        }
+        Instant now = clock.instant();
+        if (mapper.disable(id, operatorId, now) == 0) {
+            throw new IllegalStateException("Service account was changed by another request");
+        }
+        if (credentialMapper != null) {
+            credentialMapper.revokeBySubject(
+                    CredentialType.SERVICE_ACCOUNT_TOKEN.name(), id, "SUBJECT_DISABLED", now);
         }
     }
 

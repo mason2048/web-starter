@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 1,
+  "suite": "v1",
+  "baseline": "docs/acceptance/v1-acceptance-baseline.md",
+  "baselineSha256": "aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994",
+  "items": [
+    {
+      "id": "AC-01",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.emptyVolumesAndMigrations", "description": "The immutable candidate starts with empty MySQL and Redis volumes and runs every migration."},
+        {"check": "supplemental.bootstrapAdminFirstStart", "description": "The first empty-database start creates an administrator without manual SQL."}
+      ]
+    },
+    {
+      "id": "AC-02",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.bootstrapCredentialNoLeak", "description": "Bootstrap credential material is absent from repository and retained logs."},
+        {"check": "supplemental.bootstrapRemovalRestart", "description": "Restart without the bootstrap variable preserves the existing administrator password."}
+      ]
+    },
+    {
+      "id": "AC-03",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.webLoginSuccessFailureAudit", "description": "Successful and failed browser logins have the required responses, session, and login audit records."}
+      ]
+    },
+    {
+      "id": "AC-04",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.redisSessionLogoutDisable", "description": "Redis session persistence, logout invalidation, and disabled-user next-request invalidation are observed."}
+      ]
+    },
+    {
+      "id": "AC-05",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.csrfBrowserWriteMatrix", "description": "All browser write paths reject absent and incorrect CSRF tokens without side effects."}
+      ]
+    },
+    {
+      "id": "AC-06",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.userManagementBrowserAudit", "description": "Every frozen user-management action is completed in a browser and audited."}
+      ]
+    },
+    {
+      "id": "AC-07",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.rolePermissionMenuConcurrency", "description": "Role, permission, menu, stale-version, and next-request revocation behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-08",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.lastAdministratorSafety", "description": "Self, last-administrator, and built-in ADMIN lockout protections are observed."}
+      ]
+    },
+    {
+      "id": "AC-09",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.menuNavigationAndRoute403", "description": "Runtime menu removal hides navigation and direct unauthorized routing reaches the 403 page."}
+      ]
+    },
+    {
+      "id": "AC-10",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.buttonAndApiPermission", "description": "Unauthorized buttons are hidden and direct write API requests independently return 403."}
+      ]
+    },
+    {
+      "id": "AC-11",
+      "level": "P1",
+      "requirements": [
+        {"check": "supplemental.permissionDictionarySafety", "description": "Permission uniqueness, status, and protected-baseline deletion behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-12",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.systemConfigurationSensitiveKeys", "description": "Normal configuration is maintainable and every credential-like key class is rejected."}
+      ]
+    },
+    {
+      "id": "AC-13",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.privateBrowserProjectCrud", "description": "The release browser exercises the candidate Project surface."},
+        {"check": "supplemental.projectReadMatrix", "description": "Pagination, limit, keyword, status, and detail behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-14",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.privateBrowserProjectCrud", "description": "The release browser performs candidate Project create, update, and remove operations."},
+        {"check": "runtime.officialMcpSdkCrudAudit", "description": "The official SDK performs the candidate MCP Project write workflow."},
+        {"check": "supplemental.projectWriteConstraints", "description": "Uniqueness, validation, logical deletion, and stale-version 409 behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-15",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.sharedProjectServiceBoundary", "description": "REST and MCP Project adapters are proven to share ProjectService and MCP has no Mapper dependency."}
+      ]
+    },
+    {
+      "id": "AC-16",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.businessTransactionAndAudit", "description": "Rollback, joint success commit, and durable failed-MCP audit behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-17",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.privateBrowserCredentialLifecycle", "description": "The release browser exercises credential lifecycle filtering without redisplaying secrets."},
+        {"check": "supplemental.patStorageScopeExpiryIpUse", "description": "One-time plaintext, keyed hash, hint, scope, expiry, revocation, IP, and last-use behavior is observed."}
+      ]
+    },
+    {
+      "id": "AC-18",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.serviceAccountLifecycle", "description": "Service-account status, role, token issuance/revocation, and immediate subject disablement are observed."}
+      ]
+    },
+    {
+      "id": "AC-19",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.oauthMultiKeyJwksActiveSigning", "description": "The candidate publishes multiple keys and signs with the active key."},
+        {"check": "supplemental.oauthClientLifecycle", "description": "Pre-registration, secret rotation, exact redirect validation, and disabled dynamic registration are observed."}
+      ]
+    },
+    {
+      "id": "AC-20",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.oauthPkce", "description": "The release browser completes Authorization Code with PKCE S256."},
+        {"check": "runtime.officialMcpSdkPublicOAuth", "description": "The official SDK calls public MCP with the user OAuth token."},
+        {"check": "supplemental.oauthUserExpiryRevocation", "description": "Expired and revoked user access tokens are rejected."}
+      ]
+    },
+    {
+      "id": "AC-21",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.oauthClientCredentials", "description": "The immutable candidate completes Client Credentials and a least-privilege MCP call."},
+        {"check": "supplemental.oauthAutomationRealtimeRevocation", "description": "Subject disablement and RBAC revocation invalidate the existing automation token immediately."}
+      ]
+    },
+    {
+      "id": "AC-22",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.rbacScopeIntersectionBothDirections", "description": "Both RBAC-allowed/scope-denied and scope-allowed/RBAC-denied combinations return 403."}
+      ]
+    },
+    {
+      "id": "AC-23",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.patPrivatePublicBoundary", "description": "The same PAT succeeds privately and is rejected publicly."},
+        {"check": "runtime.publicOperationsEndpointsHidden", "description": "The public ingress hides management and operational endpoints."},
+        {"check": "supplemental.privateCredentialTypeMatrix", "description": "Private PAT, direct service-account, and OAuth acceptance plus public long-token rejection are observed."}
+      ]
+    },
+    {
+      "id": "AC-24",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.oauthMetadataConsistency", "description": "Both metadata documents, issuer, audience, and WWW-Authenticate are mutually consistent."}
+      ]
+    },
+    {
+      "id": "AC-25",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPublicOAuth", "description": "The official SDK initializes a public OAuth MCP session."},
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "The official SDK initializes a private PAT MCP session."}
+      ]
+    },
+    {
+      "id": "AC-26",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "The official SDK validates the exact tool list plus read, denied, invalid, missing, and unknown-tool results."},
+        {"check": "runtime.officialMcpSdkCrudAudit", "description": "The official SDK validates all mutating Project tools and audit.list."},
+        {"check": "supplemental.mcpToolSchemaAndPermissionCatalog", "description": "All seven input schemas and permission declarations match the frozen catalog."}
+      ]
+    },
+    {
+      "id": "AC-27",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "The official SDK lists and reads the frozen system resource."},
+        {"check": "supplemental.mcpResourcePermissionDenied", "description": "A caller without system:info is denied the resource."}
+      ]
+    },
+    {
+      "id": "AC-28",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "The official SDK lists and obtains project.summary with hostile business text."},
+        {"check": "supplemental.promptUntrustedContentBoundary", "description": "Hostile business content cannot change system capabilities or the tool catalog."}
+      ]
+    },
+    {
+      "id": "AC-29",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "A non-browser official SDK Agent succeeds without Origin."},
+        {"check": "supplemental.mcpHostOriginMatrix", "description": "Valid and invalid Host and Origin combinations produce the frozen outcomes."}
+      ]
+    },
+    {
+      "id": "AC-30",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkPrivatePat", "description": "Official SDK protocol discovery returns exactly the frozen seven-tool catalog, so no SQL, shell, process, filesystem, dynamic-code, or third-party MCP-client Tool is exposed."}
+      ]
+    },
+    {
+      "id": "AC-31",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.loginAuditFieldsAndRedaction", "description": "Both login outcomes contain every required field without password material."}
+      ]
+    },
+    {
+      "id": "AC-32",
+      "level": "P0",
+      "requirements": [
+        {"check": "supplemental.operationAuditCoverage", "description": "Every frozen write domain records the required actor, resource, outcome, duration, and trace fields."}
+      ]
+    },
+    {
+      "id": "AC-33",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.officialMcpSdkCrudAudit", "description": "Official SDK Project CRUD can be correlated to MCP audit records."},
+        {"check": "supplemental.mcpAuditOutcomeMatrix", "description": "Success, permission, validation, and business-failure audits contain all required identities and trace fields."}
+      ]
+    },
+    {
+      "id": "AC-34",
+      "level": "P0",
+      "requirements": [
+        {"check": "gate.repositorySecretScan", "description": "The current candidate source passes the repository secret policy."},
+        {"check": "supplemental.runtimeSecretCanaryScan", "description": "Known runtime canaries are absent from logs, errors, audits, and database rows except one-time creation responses."}
+      ]
+    },
+    {
+      "id": "AC-35",
+      "level": "P1",
+      "requirements": [
+        {"check": "runtime.privateBrowserProjectCrud", "description": "The release browser exercises the Project and operation-log pages."},
+        {"check": "runtime.privateBrowserAccountSecurity", "description": "The release browser exercises the account-security page."},
+        {"check": "runtime.privateBrowserCredentialLifecycle", "description": "The release browser exercises the credential-management page."},
+        {"check": "supplemental.managementPageInventory", "description": "All twelve frozen management surfaces are opened and their primary actions are usable."}
+      ]
+    },
+    {
+      "id": "AC-36",
+      "level": "P1",
+      "requirements": [
+        {"check": "runtime.privateBrowserProjectCrud", "description": "The release browser covers desktop Project CRUD and responsive rendering."},
+        {"check": "supplemental.browserStateAndViewportMatrix", "description": "Desktop, 390px, loading, empty, validation, 401, 403, 409, and 500 states are observed."}
+      ]
+    },
+    {
+      "id": "AC-37",
+      "level": "P0",
+      "requirements": [
+        {"check": "runtime.runtimeVersionIdentity", "description": "Java 21, Actuator version, build version, immutable image references, and both OCI label identities match the formal release."},
+        {"check": "runtime.emptyVolumesAndMigrations", "description": "The isolated five-service candidate stack starts from empty named volumes."},
+        {"check": "supplemental.composeIngressAndPersistenceRestart", "description": "Nginx is the only default host ingress and a complete stop/start preserves business data."}
+      ]
+    },
+    {
+      "id": "AC-38",
+      "level": "P1",
+      "requirements": [
+        {"check": "runtime.authenticatedOperationalMetrics", "description": "Authenticated management metrics are captured without identity labels."},
+        {"check": "runtime.mysqlReadinessAndLiveness", "description": "MySQL loss affects readiness but not liveness and then recovers."},
+        {"check": "runtime.redisReadinessAndLiveness", "description": "Redis loss affects readiness but not liveness and then recovers."},
+        {"check": "supplemental.operationsDocumentationReview", "description": "Logs, backup/restore, upgrade/rollback, and RSA rotation documentation is verified current."}
+      ]
+    },
+    {
+      "id": "AC-39",
+      "level": "P0",
+      "requirements": [
+        {"check": "gate.repositorySecretScan", "description": "The current candidate source passes the repository secret policy."},
+        {"check": "rehearsal.productionSecurityFailFast", "description": "The candidate App image rejects unsafe production configuration before infrastructure startup."}
+      ]
+    },
+    {
+      "id": "AC-40",
+      "level": "P0",
+      "requirements": [
+        {"check": "gate.forbiddenTermScan", "description": "The current candidate passes an externally supplied forbidden-term scan."},
+        {"check": "gate.referenceRepositoryUnchanged", "description": "The caller-designated read-only reference repository is byte-state identical before and after the run."},
+        {"check": "supplemental.projectIsolationReview", "description": "A review confirms no copied business module or vocabulary outside the external term list."}
+      ]
+    },
+    {
+      "id": "AC-41",
+      "level": "P0",
+      "requirements": [
+        {"check": "gate.backendVerify", "description": "Maven verify passes without skipped failures."},
+        {"check": "gate.frontendLint", "description": "Frontend lint passes."},
+        {"check": "gate.frontendTypecheck", "description": "Frontend typecheck passes."},
+        {"check": "gate.frontendTest", "description": "Frontend tests pass."},
+        {"check": "gate.frontendBuild", "description": "Frontend production build passes."}
+      ]
+    },
+    {
+      "id": "AC-42",
+      "level": "P1",
+      "requirements": [
+        {"check": "tooling.moduleDryRun", "description": "The fixed generator safely plans a unique Web, REST, audit, migration, permission, and MCP module without writes."},
+        {"check": "supplemental.isolatedGeneratedCrudRehearsal", "description": "An isolated generated module passes migration, CRUD, authorization, audit, browser, and optional official-SDK MCP acceptance."}
+      ]
+    }
+  ]
+}

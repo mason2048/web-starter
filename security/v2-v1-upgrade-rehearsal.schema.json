@@ -1,0 +1,1234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v2-v1-upgrade-rehearsal.schema.json",
+  "title": "Web Starter V1 to V2 upgrade and recovery rehearsal evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "acceptanceId",
+    "status",
+    "processExitCode",
+    "generatedAt",
+    "source",
+    "run",
+    "phases",
+    "checks",
+    "acceptance",
+    "observations",
+    "privateCommandLogs",
+    "cleanup",
+    "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceId": {"const": "V2-AC-40"},
+    "status": {"$ref": "#/$defs/status"},
+    "processExitCode": {"enum": [0, 1, 6]},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "v1Tag",
+        "v1Commit",
+        "toolPath",
+        "toolSha256",
+        "schemaPath",
+        "schemaSha256",
+        "v2Commit",
+        "v2Tree",
+        "cleanWorktree",
+        "currentAdapterSnapshotSha256",
+        "runtimeSourceSha256",
+        "inputImageReferences",
+        "resolvedImageIds",
+        "builtV1ImageIds",
+        "builtV2ImageIds",
+        "dependencySeed"
+      ],
+      "properties": {
+        "v1Tag": {"const": "v1.0.0"},
+        "v1Commit": {"const": "5ebdb238650d182c17e1493adf47aaa3324f19cb"},
+        "toolPath": {"const": "scripts/rehearse_v1_to_v2_upgrade.py"},
+        "toolSha256": {"$ref": "#/$defs/nullableSha256"},
+        "schemaPath": {"const": "security/v2-v1-upgrade-rehearsal.schema.json"},
+        "schemaSha256": {"$ref": "#/$defs/nullableSha256"},
+        "v2Commit": {"$ref": "#/$defs/nullableGitObject"},
+        "v2Tree": {"$ref": "#/$defs/nullableGitObject"},
+        "cleanWorktree": {"type": "boolean"},
+        "currentAdapterSnapshotSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scripts/__init__.py": {"$ref": "#/$defs/sha256"},
+            "scripts/acceptance_network.py": {"$ref": "#/$defs/sha256"},
+            "scripts/generated_module_plan.py": {"$ref": "#/$defs/sha256"},
+            "scripts/prepare_release_runtime_acceptance.py": {"$ref": "#/$defs/sha256"},
+            "scripts/recovery_common.py": {"$ref": "#/$defs/sha256"},
+            "scripts/recovery_backup.py": {"$ref": "#/$defs/sha256"},
+            "scripts/recovery_restore.py": {"$ref": "#/$defs/sha256"},
+            "scripts/verify_oauth_runtime.py": {"$ref": "#/$defs/sha256"},
+            "scripts/acceptance_jwk_set.py": {"$ref": "#/$defs/sha256"},
+            "scripts/v1_upgrade_refresh.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_v1_upgrade_evidence.py": {"$ref": "#/$defs/sha256"}
+          },
+          "maxProperties": 11
+        },
+        "runtimeSourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            ".dockerignore": {"$ref": "#/$defs/sha256"},
+            "Dockerfile": {"$ref": "#/$defs/sha256"},
+            "compose.production.yaml": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/Dockerfile": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/nginx.conf": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/nginx-public.conf": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/default.conf": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/external-mcp.conf": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/forwarded-maps.conf": {"$ref": "#/$defs/sha256"},
+            "deploy/nginx/proxy-headers.conf": {"$ref": "#/$defs/sha256"},
+            "pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-core/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-system/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-project/pom.xml": {"$ref": "#/$defs/sha256"},
+            ".mvn/wrapper/maven-wrapper.properties": {"$ref": "#/$defs/sha256"},
+            "mvnw": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/resources/db/migration/V4__add_identity_security_epoch.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-admin/src/main/resources/db/migration/V5__add_mcp_idempotency.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-admin/src/main/resources/db/migration/V6__add_mcp_idempotency_audit.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-admin/src/main/resources/db/migration/V7__add_credential_rotation.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkRuntimeIT.java": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkProjectListRuntimeIT.java": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkCrudRuntimeIT.java": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-web/package.json": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/pnpm-lock.yaml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/playwright.config.ts": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/e2e/frontend-quality-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-web/e2e/release-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-web/e2e/v1-management-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "maxProperties": 31
+        },
+        "inputImageReferences": {
+          "$ref": "#/$defs/inputImageMap"
+        },
+        "resolvedImageIds": {
+          "$ref": "#/$defs/candidateImageMap"
+        },
+        "builtV1ImageIds": {
+          "$ref": "#/$defs/v1ImageMap"
+        },
+        "builtV2ImageIds": {
+          "$ref": "#/$defs/v2ImageMap"
+        },
+        "dependencySeed": {
+          "$ref": "#/$defs/dependencySeed"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "composeProject",
+        "sourceDatabase",
+        "targetDatabase",
+        "publishedPortCount",
+        "loopbackOnly",
+        "containerImageIds"
+      ],
+      "properties": {
+        "runId": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+        "composeProject": {
+          "type": "string",
+          "pattern": "^web-starter-ac40-[0-9a-f]{12}$"
+        },
+        "sourceDatabase": {"type": "string", "pattern": "^ws_v1_[0-9a-f]{12}$"},
+        "targetDatabase": {
+          "type": "string",
+          "pattern": "^ws_v1_[0-9a-f]{12}_restore_v2$"
+        },
+        "publishedPortCount": {"const": 3},
+        "loopbackOnly": {"const": true},
+        "containerImageIds": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "v1": {"$ref": "#/$defs/serviceImageMap"},
+            "v2": {"$ref": "#/$defs/serviceImageMap"}
+          },
+          "maxProperties": 2
+        }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "prefixItems": [
+        {"$ref": "#/$defs/sourceFreezePhase"},
+        {"$ref": "#/$defs/cryptographicPreflightPhase"},
+        {"$ref": "#/$defs/runtimePreflightPhase"},
+        {"$ref": "#/$defs/v1FixturesPhase"},
+        {"$ref": "#/$defs/backupRestorePhase"},
+        {"$ref": "#/$defs/v2MigrationPhase"},
+        {"$ref": "#/$defs/credentialCompatibilityPhase"},
+        {"$ref": "#/$defs/runtimeAcceptancePhase"},
+        {"$ref": "#/$defs/lifecycleReadbackPhase"},
+        {"$ref": "#/$defs/cleanupPhase"}
+      ],
+      "items": false
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source.annotatedV1Tag",
+        "source.fixedV1Commit",
+        "source.v1TagAdapterBoundary",
+        "source.v1MigrationBytes",
+        "preflight.requiredCommands",
+        "preflight.frozenScriptImports",
+        "preflight.composeConfiguration",
+        "preflight.publishedPorts",
+        "preflight.composeProjectIsolation",
+        "preflight.databaseIsolation",
+        "keys.v1Pkcs8Der",
+        "keys.v1KidCaptured",
+        "backup.consistentPackage",
+        "restore.newDatabaseVerified",
+        "migration.flywayOneThroughSeven",
+        "migration.v1RowsPreserved",
+        "migration.v1ProjectionPreserved",
+        "oauth.preUpgradeUserAuthorizationAccepted",
+        "oauth.oldKidPublicOnly",
+        "oauth.newKidActiveSigning",
+        "oauth.preUpgradeClientCredentialAccepted",
+        "oauth.freshClientCredentials",
+        "credential.oldPatRead",
+        "credential.oldPatCrud",
+        "credential.preUpgradeServiceAccessAccepted",
+        "credential.preUpgradeRefreshRotationAccepted",
+        "compatibility.restProjectCrud",
+        "compatibility.mcpReadAndDiscovery",
+        "authorization.permissionDenied",
+        "browser.playwright",
+        "mcp.crudIdempotencyAudit",
+        "audit.traceSearch",
+        "lifecycle.revokedPatRejectedAndReadBack",
+        "lifecycle.disabledServiceRejectedAndReadBack",
+        "integrity.finalSource",
+        "cleanup.exactOwnedResources"
+      ],
+      "properties": {
+        "source.annotatedV1Tag": {"$ref": "#/$defs/check"},
+        "source.fixedV1Commit": {"$ref": "#/$defs/check"},
+        "source.v1TagAdapterBoundary": {"$ref": "#/$defs/check"},
+        "source.v1MigrationBytes": {"$ref": "#/$defs/check"},
+        "preflight.requiredCommands": {"$ref": "#/$defs/check"},
+        "preflight.frozenScriptImports": {"$ref": "#/$defs/check"},
+        "preflight.composeConfiguration": {"$ref": "#/$defs/check"},
+        "preflight.publishedPorts": {"$ref": "#/$defs/check"},
+        "preflight.composeProjectIsolation": {"$ref": "#/$defs/check"},
+        "preflight.databaseIsolation": {"$ref": "#/$defs/check"},
+        "keys.v1Pkcs8Der": {"$ref": "#/$defs/check"},
+        "keys.v1KidCaptured": {"$ref": "#/$defs/check"},
+        "backup.consistentPackage": {"$ref": "#/$defs/check"},
+        "restore.newDatabaseVerified": {"$ref": "#/$defs/check"},
+        "migration.flywayOneThroughSeven": {"$ref": "#/$defs/check"},
+        "migration.v1RowsPreserved": {"$ref": "#/$defs/check"},
+        "migration.v1ProjectionPreserved": {"$ref": "#/$defs/check"},
+        "oauth.preUpgradeUserAuthorizationAccepted": {"$ref": "#/$defs/check"},
+        "oauth.oldKidPublicOnly": {"$ref": "#/$defs/check"},
+        "oauth.newKidActiveSigning": {"$ref": "#/$defs/check"},
+        "oauth.preUpgradeClientCredentialAccepted": {"$ref": "#/$defs/check"},
+        "oauth.freshClientCredentials": {"$ref": "#/$defs/check"},
+        "credential.oldPatRead": {"$ref": "#/$defs/check"},
+        "credential.oldPatCrud": {"$ref": "#/$defs/check"},
+        "credential.preUpgradeServiceAccessAccepted": {"$ref": "#/$defs/check"},
+        "credential.preUpgradeRefreshRotationAccepted": {"$ref": "#/$defs/check"},
+        "compatibility.restProjectCrud": {"$ref": "#/$defs/check"},
+        "compatibility.mcpReadAndDiscovery": {"$ref": "#/$defs/check"},
+        "authorization.permissionDenied": {"$ref": "#/$defs/check"},
+        "browser.playwright": {"$ref": "#/$defs/check"},
+        "mcp.crudIdempotencyAudit": {"$ref": "#/$defs/check"},
+        "audit.traceSearch": {"$ref": "#/$defs/check"},
+        "lifecycle.revokedPatRejectedAndReadBack": {"$ref": "#/$defs/check"},
+        "lifecycle.disabledServiceRejectedAndReadBack": {"$ref": "#/$defs/check"},
+        "integrity.finalSource": {"$ref": "#/$defs/check"},
+        "cleanup.exactOwnedResources": {"$ref": "#/$defs/check"}
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["V2-AC-04", "V2-AC-05", "V2-AC-06", "V2-AC-39", "V2-AC-40"],
+      "properties": {
+        "V2-AC-04": {"$ref": "#/$defs/acceptance"},
+        "V2-AC-05": {"$ref": "#/$defs/acceptance"},
+        "V2-AC-06": {"$ref": "#/$defs/acceptance"},
+        "V2-AC-39": {"$ref": "#/$defs/acceptance"},
+        "V2-AC-40": {"$ref": "#/$defs/acceptance"}
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "v1MigrationSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "web-starter-admin/src/main/resources/db/migration/V1__create_core_schema.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-admin/src/main/resources/db/migration/V2__seed_reference_data.sql": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-admin/src/main/resources/db/migration/V3__add_oauth_refresh_token_families.sql": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "maxProperties": 3
+        },
+        "v1TableCount": {"type": "integer", "minimum": 1},
+        "v2TableCount": {"type": "integer", "minimum": 1},
+        "v1ProjectionCount": {"type": "integer", "minimum": 1},
+        "flywayVersions": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "prefixItems": [
+            {"const": 1}, {"const": 2}, {"const": 3}, {"const": 4},
+            {"const": 5}, {"const": 6}, {"const": 7}
+          ],
+          "items": false
+        },
+        "flywayHistory": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {"$ref": "#/$defs/flywayHistoryRow"}
+        },
+        "credentialTypesCapturedBeforeUpgrade": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "prefixItems": [
+            {"const": "OAUTH_ACCESS_TOKEN"},
+            {"const": "OAUTH_CLIENT_SECRET"},
+            {"const": "OAUTH_REFRESH_TOKEN"},
+            {"const": "PERSONAL_ACCESS_TOKEN"},
+            {"const": "SERVICE_ACCOUNT_TOKEN"}
+          ],
+          "items": false
+        },
+        "mcpSdkSurefire": {"$ref": "#/$defs/mcpSdkReportPrefix"},
+        "playwright": {"$ref": "#/$defs/playwrightReport"}
+      }
+    },
+    "privateCommandLogs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persisted", "count", "aggregateSha256"],
+      "properties": {
+        "persisted": {"type": "boolean"},
+        "count": {"type": "integer", "minimum": 0},
+        "aggregateSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "required": [
+        "status",
+        "exactOwnershipVerified",
+        "removed",
+        "residual",
+        "failureCodes",
+        "privateRuntimeRemoved"
+      ],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL"]},
+        "exactOwnershipVerified": {"type": "boolean"},
+        "removed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "volumes", "networks", "imageTags", "images"],
+          "properties": {
+            "containers": {"type": "integer", "minimum": 0},
+            "volumes": {"type": "integer", "minimum": 0},
+            "networks": {"type": "integer", "minimum": 0},
+            "imageTags": {"type": "integer", "minimum": 0},
+            "images": {"type": "integer", "minimum": 0}
+          }
+        },
+        "residual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["containers", "volumes", "networks", "imageTags", "images"],
+          "properties": {
+            "containers": {"type": "boolean"},
+            "volumes": {"type": "boolean"},
+            "networks": {"type": "boolean"},
+            "imageTags": {"type": "boolean"},
+            "images": {"type": "boolean"}
+          }
+        },
+        "failureCodes": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{2,95}$"}
+        },
+        "privateRuntimeRemoved": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outsideRepository",
+        "directoryMode",
+        "fileMode",
+        "containsSecrets",
+        "privateRuntimePersisted"
+      ],
+      "properties": {
+        "outsideRepository": {"const": true},
+        "directoryMode": {"const": "0700"},
+        "fileMode": {"const": "0600"},
+        "containsSecrets": {"const": false},
+        "privateRuntimePersisted": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {"status": {"const": "PASS"}}
+      },
+      "then": {
+        "properties": {
+          "processExitCode": {"const": 0},
+          "source": {
+            "properties": {
+              "toolSha256": {"$ref": "#/$defs/sha256"},
+              "schemaSha256": {"$ref": "#/$defs/sha256"},
+              "v2Commit": {"$ref": "#/$defs/gitObject"},
+              "v2Tree": {"$ref": "#/$defs/gitObject"},
+              "cleanWorktree": {"const": true},
+              "currentAdapterSnapshotSha256": {
+                "required": [
+                  "scripts/__init__.py",
+                  "scripts/acceptance_network.py",
+                  "scripts/generated_module_plan.py",
+                  "scripts/prepare_release_runtime_acceptance.py",
+                  "scripts/recovery_common.py",
+                  "scripts/recovery_backup.py",
+                  "scripts/recovery_restore.py",
+                  "scripts/verify_oauth_runtime.py",
+                  "scripts/acceptance_jwk_set.py",
+                  "scripts/v1_upgrade_refresh.py",
+                  "scripts/validate_v1_upgrade_evidence.py"
+                ],
+                "minProperties": 11,
+                "maxProperties": 11
+              },
+              "runtimeSourceSha256": {
+                "required": [
+                  ".dockerignore",
+                  "Dockerfile",
+                  "compose.production.yaml",
+                  "deploy/nginx/Dockerfile",
+                  "deploy/nginx/nginx.conf",
+                  "deploy/nginx/nginx-public.conf",
+                  "deploy/nginx/default.conf",
+                  "deploy/nginx/external-mcp.conf",
+                  "deploy/nginx/forwarded-maps.conf",
+                  "deploy/nginx/proxy-headers.conf",
+                  "pom.xml",
+                  "web-starter-core/pom.xml",
+                  "web-starter-system/pom.xml",
+                  "web-starter-security/pom.xml",
+                  "web-starter-project/pom.xml",
+                  ".mvn/wrapper/maven-wrapper.properties",
+                  "mvnw",
+                  "web-starter-mcp/pom.xml",
+                  "web-starter-admin/src/main/resources/db/migration/V4__add_identity_security_epoch.sql",
+                  "web-starter-admin/src/main/resources/db/migration/V5__add_mcp_idempotency.sql",
+                  "web-starter-admin/src/main/resources/db/migration/V6__add_mcp_idempotency_audit.sql",
+                  "web-starter-admin/src/main/resources/db/migration/V7__add_credential_rotation.sql",
+                  "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkRuntimeIT.java",
+                  "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkProjectListRuntimeIT.java",
+                  "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkCrudRuntimeIT.java",
+                  "web-starter-web/package.json",
+                  "web-starter-web/pnpm-lock.yaml",
+                  "web-starter-web/playwright.config.ts",
+                  "web-starter-web/e2e/frontend-quality-runtime.spec.ts",
+                  "web-starter-web/e2e/release-runtime.spec.ts",
+                  "web-starter-web/e2e/v1-management-runtime.spec.ts"
+                ],
+                "minProperties": 31,
+                "maxProperties": 31
+              },
+              "inputImageReferences": {"$ref": "#/$defs/exactInputImageMap"},
+              "resolvedImageIds": {"$ref": "#/$defs/exactCandidateImageMap"},
+              "builtV1ImageIds": {"$ref": "#/$defs/exactV1ImageMap"},
+              "builtV2ImageIds": {"$ref": "#/$defs/exactV2ImageMap"},
+              "dependencySeed": {"$ref": "#/$defs/exactDependencySeed"}
+            }
+          },
+          "run": {
+            "properties": {
+              "containerImageIds": {
+                "required": ["v1", "v2"],
+                "minProperties": 2,
+                "maxProperties": 2,
+                "properties": {
+                  "v1": {"$ref": "#/$defs/exactServiceImageMap"},
+                  "v2": {"$ref": "#/$defs/exactServiceImageMap"}
+                }
+              }
+            }
+          },
+          "phases": {
+            "items": {"$ref": "#/$defs/passPhase"}
+          },
+          "checks": {
+            "additionalProperties": {"$ref": "#/$defs/passCheck"}
+          },
+          "acceptance": {
+            "additionalProperties": {"$ref": "#/$defs/passAcceptance"}
+          },
+          "observations": {
+            "required": [
+              "v1MigrationSha256",
+              "v1TableCount",
+              "v2TableCount",
+              "v1ProjectionCount",
+              "flywayVersions",
+              "flywayHistory",
+              "credentialTypesCapturedBeforeUpgrade",
+              "mcpSdkSurefire",
+              "playwright"
+            ],
+            "properties": {
+              "v1MigrationSha256": {
+                "required": [
+                  "web-starter-admin/src/main/resources/db/migration/V1__create_core_schema.sql",
+                  "web-starter-admin/src/main/resources/db/migration/V2__seed_reference_data.sql",
+                  "web-starter-admin/src/main/resources/db/migration/V3__add_oauth_refresh_token_families.sql"
+                ],
+                "minProperties": 3,
+                "maxProperties": 3
+              },
+              "mcpSdkSurefire": {"minItems": 7, "maxItems": 7}
+            }
+          },
+          "cleanup": {
+            "properties": {
+              "status": {"const": "PASS"},
+              "exactOwnershipVerified": {"const": true},
+              "residual": {
+                "properties": {
+                  "containers": {"const": false},
+                  "volumes": {"const": false},
+                  "networks": {"const": false},
+                  "imageTags": {"const": false},
+                  "images": {"const": false}
+                }
+              },
+              "failureCodes": {"maxItems": 0},
+              "privateRuntimeRemoved": {"const": true}
+            }
+          },
+          "privateCommandLogs": {
+            "properties": {"persisted": {"const": false}}
+          },
+          "evidencePolicy": {
+            "properties": {"privateRuntimePersisted": {"const": false}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {"status": {"const": "FAIL"}}
+      },
+      "then": {"properties": {"processExitCode": {"const": 1}}}
+    },
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {
+          "status": {"enum": ["NOT_COVERED", "ENV_REQUIRED"]}
+        }
+      },
+      "then": {"properties": {"processExitCode": {"const": 6}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "keys.v1KidCaptured": {"properties": {"status": {"const": "PASS"}}}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 1}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "oauth.preUpgradeUserAuthorizationAccepted": {
+                "properties": {"status": {"const": "PASS"}}
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 2}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "credential.preUpgradeRefreshRotationAccepted": {
+                "properties": {"status": {"const": "PASS"}}
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 4}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "credential.oldPatRead": {"properties": {"status": {"const": "PASS"}}}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 5}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "credential.preUpgradeServiceAccessAccepted": {
+                "properties": {"status": {"const": "PASS"}}
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 6}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "checks": {
+            "properties": {
+              "credential.oldPatCrud": {"properties": {"status": {"const": "PASS"}}}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "required": ["mcpSdkSurefire"],
+            "properties": {"mcpSdkSurefire": {"minItems": 7}}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "flywayHistoryRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "installedRank", "version", "description", "type", "script",
+        "checksum", "success", "scriptSha256"
+      ],
+      "properties": {
+        "installedRank": {"type": "integer", "minimum": 1, "maximum": 7},
+        "version": {"type": "integer", "minimum": 1, "maximum": 7},
+        "description": {"type": "string", "minLength": 1, "maxLength": 200},
+        "type": {"const": "SQL"},
+        "script": {"type": "string", "pattern": "^V[1-7]__[A-Za-z0-9_]+\\.sql$"},
+        "checksum": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "success": {"const": true},
+        "scriptSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {"$ref": "#/$defs/sha256"},
+        {"type": "null"}
+      ]
+    },
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "nullableGitObject": {
+      "oneOf": [
+        {"$ref": "#/$defs/gitObject"},
+        {"type": "null"}
+      ]
+    },
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "imageReference": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$",
+      "not": {"pattern": "^[sS][hH][aA]256:"}
+    },
+    "inputImageMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mysql": {"$ref": "#/$defs/imageReference"},
+        "redis": {"$ref": "#/$defs/imageReference"}
+      },
+      "maxProperties": 2
+    },
+    "exactInputImageMap": {
+      "allOf": [
+        {"$ref": "#/$defs/inputImageMap"},
+        {
+          "required": ["mysql", "redis"],
+          "minProperties": 2,
+          "maxProperties": 2
+        }
+      ]
+    },
+    "candidateImageMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "v2-app": {"$ref": "#/$defs/imageId"},
+        "v2-nginx": {"$ref": "#/$defs/imageId"},
+        "mysql": {"$ref": "#/$defs/imageId"},
+        "redis": {"$ref": "#/$defs/imageId"}
+      },
+      "maxProperties": 4
+    },
+    "exactCandidateImageMap": {
+      "allOf": [
+        {"$ref": "#/$defs/candidateImageMap"},
+        {
+          "required": ["v2-app", "v2-nginx", "mysql", "redis"],
+          "minProperties": 4,
+          "maxProperties": 4
+        }
+      ]
+    },
+    "v1ImageMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "v1-app": {"$ref": "#/$defs/imageId"},
+        "v1-nginx": {"$ref": "#/$defs/imageId"}
+      },
+      "maxProperties": 2
+    },
+    "exactV1ImageMap": {
+      "allOf": [
+        {"$ref": "#/$defs/v1ImageMap"},
+        {
+          "required": ["v1-app", "v1-nginx"],
+          "minProperties": 2,
+          "maxProperties": 2
+        }
+      ]
+    },
+    "v2ImageMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "v2-app": {"$ref": "#/$defs/imageId"},
+        "v2-nginx": {"$ref": "#/$defs/imageId"}
+      },
+      "maxProperties": 2
+    },
+    "exactV2ImageMap": {
+      "allOf": [
+        {"$ref": "#/$defs/v2ImageMap"},
+        {
+          "required": ["v2-app", "v2-nginx"],
+          "minProperties": 2,
+          "maxProperties": 2
+        }
+      ]
+    },
+    "serviceImageMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mysql": {"$ref": "#/$defs/imageId"},
+        "redis": {"$ref": "#/$defs/imageId"},
+        "app": {"$ref": "#/$defs/imageId"},
+        "nginx": {"$ref": "#/$defs/imageId"},
+        "mcp-public-nginx": {"$ref": "#/$defs/imageId"}
+      },
+      "maxProperties": 5
+    },
+    "exactServiceImageMap": {
+      "allOf": [
+        {"$ref": "#/$defs/serviceImageMap"},
+        {
+          "required": ["mysql", "redis", "app", "nginx", "mcp-public-nginx"],
+          "minProperties": 5,
+          "maxProperties": 5
+        }
+      ]
+    },
+    "dependencySeedComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["treeSha256", "fileCount", "byteCount"],
+      "properties": {
+        "treeSha256": {"$ref": "#/$defs/sha256"},
+        "fileCount": {"type": "integer", "minimum": 1},
+        "byteCount": {"type": "integer", "minimum": 1}
+      }
+    },
+    "dependencySeed": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "kind": {"const": "web-starter-ac40-dependency-seed"},
+        "platform": {"enum": ["darwin", "linux", "win32"]},
+        "architecture": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$"
+        },
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maven": {"const": "3.9.15"},
+            "pnpm": {"const": "9.15.9"},
+            "playwright": {"const": "1.61.1"},
+            "chromiumRevision": {"const": "1228"}
+          },
+          "maxProperties": 4
+        },
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-core/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-system/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-project/pom.xml": {"$ref": "#/$defs/sha256"},
+            ".mvn/wrapper/maven-wrapper.properties": {"$ref": "#/$defs/sha256"},
+            "mvnw": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/package.json": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/pnpm-lock.yaml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/playwright.config.ts": {"$ref": "#/$defs/sha256"}
+          },
+          "maxProperties": 11
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mavenHome": {"$ref": "#/$defs/dependencySeedComponent"},
+            "mavenRepository": {"$ref": "#/$defs/dependencySeedComponent"},
+            "corepackHome": {"$ref": "#/$defs/dependencySeedComponent"},
+            "pnpmStore": {"$ref": "#/$defs/dependencySeedComponent"},
+            "playwrightBrowsers": {"$ref": "#/$defs/dependencySeedComponent"}
+          },
+          "maxProperties": 5
+        },
+        "manifestSha256": {"$ref": "#/$defs/sha256"},
+        "aggregateSha256": {"$ref": "#/$defs/sha256"},
+        "copiedToPrivateRuntime": {"const": true},
+        "executionPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "privateCopyOnly": {"const": true},
+            "mavenOffline": {"const": true},
+            "pnpmOffline": {"const": true},
+            "corepackNetworkDisabled": {"const": true},
+            "browserDownloadsDisabled": {"const": true},
+            "dependencyRetries": {"const": 0}
+          },
+          "maxProperties": 6
+        }
+      },
+      "maxProperties": 11
+    },
+    "exactDependencySeed": {
+      "allOf": [
+        {"$ref": "#/$defs/dependencySeed"},
+        {
+          "required": [
+            "schemaVersion", "kind", "platform", "architecture", "versions",
+            "sourceSha256", "components", "manifestSha256", "aggregateSha256",
+            "copiedToPrivateRuntime", "executionPolicy"
+          ],
+          "minProperties": 11,
+          "maxProperties": 11,
+          "properties": {
+            "versions": {
+              "required": ["maven", "pnpm", "playwright", "chromiumRevision"],
+              "minProperties": 4,
+              "maxProperties": 4
+            },
+            "sourceSha256": {
+              "required": [
+                "pom.xml", "web-starter-core/pom.xml",
+                "web-starter-system/pom.xml", "web-starter-security/pom.xml",
+                "web-starter-project/pom.xml",
+                ".mvn/wrapper/maven-wrapper.properties", "mvnw",
+                "web-starter-mcp/pom.xml", "web-starter-web/package.json",
+                "web-starter-web/pnpm-lock.yaml",
+                "web-starter-web/playwright.config.ts"
+              ],
+              "minProperties": 11,
+              "maxProperties": 11
+            },
+            "components": {
+              "required": [
+                "mavenHome", "mavenRepository", "corepackHome", "pnpmStore",
+                "playwrightBrowsers"
+              ],
+              "minProperties": 5,
+              "maxProperties": 5
+            },
+            "executionPolicy": {
+              "required": [
+                "privateCopyOnly", "mavenOffline", "pnpmOffline",
+                "corepackNetworkDisabled", "browserDownloadsDisabled",
+                "dependencyRetries"
+              ],
+              "minProperties": 6,
+              "maxProperties": 6
+            }
+          }
+        }
+      ]
+    },
+    "playwrightReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tests",
+        "failures",
+        "skipped",
+        "flaky",
+        "reportSha256",
+        "packageJsonSha256",
+        "lockfileSha256",
+        "configSha256",
+        "testSourceSha256"
+      ],
+      "properties": {
+        "tests": {"const": 20},
+        "failures": {"const": 0},
+        "skipped": {"const": 0},
+        "flaky": {"const": 0},
+        "reportSha256": {"$ref": "#/$defs/sha256"},
+        "packageJsonSha256": {"$ref": "#/$defs/sha256"},
+        "lockfileSha256": {"$ref": "#/$defs/sha256"},
+        "configSha256": {"$ref": "#/$defs/sha256"},
+        "testSourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "web-starter-web/e2e/frontend-quality-runtime.spec.ts",
+            "web-starter-web/e2e/release-runtime.spec.ts",
+            "web-starter-web/e2e/v1-management-runtime.spec.ts"
+          ],
+          "properties": {
+            "web-starter-web/e2e/frontend-quality-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-web/e2e/release-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            },
+            "web-starter-web/e2e/v1-management-runtime.spec.ts": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      }
+    },
+    "mcpSdkReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "testClass",
+        "tests",
+        "failures",
+        "errors",
+        "skipped",
+        "reportSha256",
+        "testSourceSha256",
+        "rootPomSha256",
+        "modulePomSha256"
+      ],
+      "properties": {
+        "testClass": {
+          "enum": [
+            "dev.webstarter.mcp.acceptance.McpSdkRuntimeIT",
+            "dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT",
+            "dev.webstarter.mcp.acceptance.McpSdkCrudRuntimeIT"
+          ]
+        },
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "reportSha256": {"$ref": "#/$defs/sha256"},
+        "testSourceSha256": {"$ref": "#/$defs/sha256"},
+        "rootPomSha256": {"$ref": "#/$defs/sha256"},
+        "modulePomSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "mcpSdkRuntimeReport": {
+      "allOf": [
+        {"$ref": "#/$defs/mcpSdkReport"},
+        {
+          "properties": {
+            "testClass": {"const": "dev.webstarter.mcp.acceptance.McpSdkRuntimeIT"}
+          }
+        }
+      ]
+    },
+    "mcpSdkProjectListReport": {
+      "allOf": [
+        {"$ref": "#/$defs/mcpSdkReport"},
+        {
+          "properties": {
+            "testClass": {
+              "const": "dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT"
+            }
+          }
+        }
+      ]
+    },
+    "mcpSdkCrudReport": {
+      "allOf": [
+        {"$ref": "#/$defs/mcpSdkReport"},
+        {
+          "properties": {
+            "testClass": {"const": "dev.webstarter.mcp.acceptance.McpSdkCrudRuntimeIT"}
+          }
+        }
+      ]
+    },
+    "mcpSdkReportPrefix": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 7,
+      "prefixItems": [
+        {"$ref": "#/$defs/mcpSdkRuntimeReport"},
+        {"$ref": "#/$defs/mcpSdkRuntimeReport"},
+        {"$ref": "#/$defs/mcpSdkRuntimeReport"},
+        {"$ref": "#/$defs/mcpSdkRuntimeReport"},
+        {"$ref": "#/$defs/mcpSdkProjectListReport"},
+        {"$ref": "#/$defs/mcpSdkProjectListReport"},
+        {"$ref": "#/$defs/mcpSdkCrudReport"}
+      ],
+      "items": false
+    },
+    "status": {"enum": ["PASS", "FAIL", "NOT_COVERED", "ENV_REQUIRED"]},
+    "detailCode": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,95}$"},
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "startedAt", "finishedAt", "detailCode"],
+      "properties": {
+        "name": {"type": "string"},
+        "status": {"$ref": "#/$defs/status"},
+        "startedAt": {
+          "oneOf": [
+            {"type": "string", "format": "date-time"},
+            {"type": "null"}
+          ]
+        },
+        "finishedAt": {
+          "oneOf": [
+            {"type": "string", "format": "date-time"},
+            {"type": "null"}
+          ]
+        },
+        "detailCode": {"$ref": "#/$defs/detailCode"}
+      }
+    },
+    "sourceFreezePhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "source-freeze"}}}
+      ]
+    },
+    "cryptographicPreflightPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "cryptographic-preflight"}}}
+      ]
+    },
+    "runtimePreflightPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "runtime-preflight"}}}
+      ]
+    },
+    "v1FixturesPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "v1-fixtures"}}}
+      ]
+    },
+    "backupRestorePhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "backup-restore"}}}
+      ]
+    },
+    "v2MigrationPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "v2-migration"}}}
+      ]
+    },
+    "credentialCompatibilityPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "credential-compatibility"}}}
+      ]
+    },
+    "runtimeAcceptancePhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "runtime-acceptance"}}}
+      ]
+    },
+    "lifecycleReadbackPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "lifecycle-readback"}}}
+      ]
+    },
+    "cleanupPhase": {
+      "allOf": [
+        {"$ref": "#/$defs/phase"},
+        {"properties": {"name": {"const": "cleanup"}}}
+      ]
+    },
+    "passPhase": {
+      "type": "object",
+      "required": ["status", "startedAt", "finishedAt"],
+      "properties": {
+        "status": {"const": "PASS"},
+        "startedAt": {"type": "string", "format": "date-time"},
+        "finishedAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "detailCode"],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "detailCode": {"$ref": "#/$defs/detailCode"}
+      }
+    },
+    "passCheck": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {"status": {"const": "PASS"}}
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {"status": {"$ref": "#/$defs/status"}}
+    },
+    "passAcceptance": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {"status": {"const": "PASS"}}
+    }
+  }
+}

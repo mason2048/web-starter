@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-starter.invalid/schema/v1-ac15-project-transport-parity-summary.schema.json",
+  "title": "V1 AC-15 Project transport parity canonical evidence summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "acceptanceId",
+    "candidate",
+    "springContext",
+    "persistenceBoundary",
+    "sources",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "status": {"const": "PASS"},
+    "acceptanceId": {"const": "AC-15"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version", "tag"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "tree": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        }
+      }
+    },
+    "springContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "testClass",
+        "testMethod",
+        "tests",
+        "failures",
+        "errors",
+        "skipped",
+        "flakes",
+        "adapters",
+        "sharedServiceType",
+        "sharedServiceImplementation",
+        "sharedBeanIdentity"
+      ],
+      "properties": {
+        "testClass": {"const": "dev.webstarter.admin.acceptance.ProjectTransportParityIT"},
+        "testMethod": {
+          "const": "provesRestAndMcpShareProjectServiceWithoutProjectPersistenceDependency"
+        },
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "flakes": {"const": 0},
+        "adapters": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "dev.webstarter.project.web.ProjectController"},
+            {"const": "dev.webstarter.mcp.service.McpToolCatalog"},
+            {"const": "dev.webstarter.mcp.service.McpContentCatalog"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "sharedServiceType": {"const": "dev.webstarter.project.service.ProjectService"},
+        "sharedServiceImplementation": {
+          "const": "dev.webstarter.project.service.impl.ProjectServiceImpl"
+        },
+        "sharedBeanIdentity": {"const": true}
+      }
+    },
+    "persistenceBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectMapperBeans",
+        "projectServiceImplBeans",
+        "adapterProjectMapperDependencies",
+        "mcpProjectPersistenceBytecodeReferences",
+        "forbiddenReferences"
+      ],
+      "properties": {
+        "projectMapperBeans": {"const": 1},
+        "projectServiceImplBeans": {"const": 1},
+        "adapterProjectMapperDependencies": {"const": 0},
+        "mcpProjectPersistenceBytecodeReferences": {"const": 0},
+        "forbiddenReferences": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "dev/webstarter/project/persistence/"},
+            {"const": "dev.webstarter.project.persistence."},
+            {"const": "ProjectMapper"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 13,
+      "maxProperties": 13,
+      "propertyNames": {
+        "enum": [
+          "pom.xml",
+          "scripts/create_project_transport_parity_proof.py",
+          "scripts/validate_project_transport_parity_proof.py",
+          "security/v1-ac15-project-transport-parity-summary.schema.json",
+          "web-starter-admin/pom.xml",
+          "web-starter-admin/src/test/java/dev/webstarter/admin/acceptance/ProjectTransportParityIT.java",
+          "web-starter-mcp/pom.xml",
+          "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpContentCatalog.java",
+          "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpToolCatalog.java",
+          "web-starter-project/pom.xml",
+          "web-starter-project/src/main/java/dev/webstarter/project/service/ProjectService.java",
+          "web-starter-project/src/main/java/dev/webstarter/project/service/impl/ProjectServiceImpl.java",
+          "web-starter-project/src/main/java/dev/webstarter/project/web/ProjectController.java"
+        ]
+      },
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proofFile", "proofSha256", "reportFile", "reportSha256"],
+      "properties": {
+        "proofFile": {"const": "project-transport-parity-proof.properties"},
+        "proofSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reportFile": {
+          "const": "TEST-dev.webstarter.admin.acceptance.ProjectTransportParityIT.xml"
+        },
+        "reportSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

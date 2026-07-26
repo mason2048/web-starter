@@ -16,16 +16,16 @@ public interface ServiceAccountMapper {
 
     @Insert("""
             INSERT INTO sec_service_account
-                (id, code, display_name, description, enabled, role_ids, created_by, created_at,
-                 updated_by, updated_at)
+                (id, code, display_name, description, enabled, security_epoch, disabled_at,
+                 role_ids, created_by, created_at, updated_by, updated_at)
             VALUES
-                (#{id}, #{code}, #{displayName}, #{description}, #{enabled}, #{roleIds},
-                 #{createdBy}, #{createdAt}, #{updatedBy}, #{updatedAt})
+                (#{id}, #{code}, #{displayName}, #{description}, #{enabled}, #{securityEpoch},
+                 #{disabledAt}, #{roleIds}, #{createdBy}, #{createdAt}, #{updatedBy}, #{updatedAt})
             """)
     int insert(ServiceAccountRecord record);
 
     @Select("""
-            SELECT id, code, display_name, description, enabled, role_ids,
+            SELECT id, code, display_name, description, enabled, security_epoch, disabled_at, role_ids,
                    created_by, created_at, updated_by, updated_at
               FROM sec_service_account
              WHERE id = #{id}
@@ -33,7 +33,7 @@ public interface ServiceAccountMapper {
     ServiceAccountRecord findById(Long id);
 
     @Select("""
-            SELECT id, code, display_name, description, enabled, role_ids,
+            SELECT id, code, display_name, description, enabled, security_epoch, disabled_at, role_ids,
                    created_by, created_at, updated_by, updated_at
               FROM sec_service_account
              WHERE code = #{code}
@@ -41,7 +41,7 @@ public interface ServiceAccountMapper {
     ServiceAccountRecord findByCode(String code);
 
     @Select("""
-            SELECT id, code, display_name, description, enabled, role_ids,
+            SELECT id, code, display_name, description, enabled, security_epoch, disabled_at, role_ids,
                    created_by, created_at, updated_by, updated_at
               FROM sec_service_account
              ORDER BY id DESC
@@ -54,7 +54,9 @@ public interface ServiceAccountMapper {
     @Update("""
             UPDATE sec_service_account
                SET display_name = #{displayName}, description = #{description},
-                   enabled = #{enabled}, role_ids = #{roleIds},
+                   enabled = #{enabled},
+                   security_epoch = GREATEST(security_epoch, #{securityEpoch}),
+                   disabled_at = #{disabledAt}, role_ids = #{roleIds},
                    updated_by = #{updatedBy}, updated_at = #{updatedAt}
              WHERE id = #{id}
             """)
@@ -62,8 +64,11 @@ public interface ServiceAccountMapper {
 
     @Update("""
             UPDATE sec_service_account
-               SET enabled = FALSE, updated_by = #{updatedBy}, updated_at = #{updatedAt}
-             WHERE id = #{id}
+               SET enabled = FALSE,
+                   security_epoch = security_epoch + IF(enabled, 1, 0),
+                   disabled_at = #{updatedAt},
+                   updated_by = #{updatedBy}, updated_at = #{updatedAt}
+             WHERE id = #{id} AND enabled = TRUE
             """)
     int disable(
             @Param("id") Long id,

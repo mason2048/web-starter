@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v2-ac34-ac35-mcp-governance-summary.schema.json",
+  "title": "V2 AC-34 and AC-35 MCP governance runtime summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "acceptanceIds",
+    "status",
+    "candidate",
+    "runtime",
+    "sessionLifecycle",
+    "rateLimiting",
+    "shutdown",
+    "sources"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "acceptanceIds": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "V2-AC-34" },
+        { "const": "V2-AC-35" }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "status": { "const": "PASS" },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version", "tag"],
+      "properties": {
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+        "tree": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$" },
+        "tag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composeProject", "tracePrefix", "transport", "officialSdk", "sdkVersion", "reports"],
+      "properties": {
+        "composeProject": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$" },
+        "tracePrefix": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$" },
+        "transport": { "const": "Streamable HTTP" },
+        "officialSdk": { "const": true },
+        "sdkVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$" },
+        "reports": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "TEST-dev.webstarter.mcp.acceptance.McpSdkGovernanceRuntimeIT.xml" },
+            { "const": "TEST-dev.webstarter.mcp.acceptance.McpSdkGovernanceShutdownRuntimeIT.xml" }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "sessionLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["idleTtlSeconds", "absoluteTtlSeconds", "maxPerSubject", "observations"],
+      "properties": {
+        "idleTtlSeconds": { "const": 50 },
+        "absoluteTtlSeconds": { "const": 60 },
+        "maxPerSubject": { "const": 2 },
+        "observations": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "IDLE_EXPIRED_404" },
+            { "const": "ABSOLUTE_EXPIRED_WHILE_IDLE_ACTIVE_404" },
+            { "const": "SUBJECT_SESSION_CAP_429_RETRY_AFTER" },
+            { "const": "EXPLICIT_DELETE_THEN_404" },
+            { "const": "EXPIRED_SESSION_REJECTED_BEFORE_TOOL" }
+          ],
+          "items": false,
+          "minItems": 5,
+          "maxItems": 5
+        }
+      }
+    },
+    "rateLimiting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["windowSeconds", "maxPerSubject", "maxPerClient", "riskLimits", "observations"],
+      "properties": {
+        "windowSeconds": { "const": 15 },
+        "maxPerSubject": { "const": 5 },
+        "maxPerClient": { "const": 5 },
+        "riskLimits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write", "destructive", "protocol"],
+          "properties": {
+            "read": { "const": 5 },
+            "write": { "const": 5 },
+            "destructive": { "const": 1 },
+            "protocol": { "const": 5 }
+          }
+        },
+        "observations": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "SUBJECT_BUCKET_429_RETRY_AFTER" },
+            { "const": "CLIENT_BUCKET_429_RETRY_AFTER" },
+            { "const": "DESTRUCTIVE_RISK_BUCKET_429_RETRY_AFTER" },
+            { "const": "RATE_LIMITED_AUDIT_FAILED_OUTCOME" }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "shutdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gracefulRestart",
+        "ingressContinuity",
+        "probeBeforeIdleExpiry",
+        "oldSessionOutcome",
+        "nginxImageId",
+        "nginxImageReferenceSha256",
+        "restartReceipt",
+        "restartReceiptSha256",
+        "restartProducerSha256"
+      ],
+      "properties": {
+        "gracefulRestart": { "const": true },
+        "ingressContinuity": { "const": true },
+        "probeBeforeIdleExpiry": { "const": true },
+        "oldSessionOutcome": { "const": "SESSION_NOT_FOUND_404" },
+        "nginxImageId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "nginxImageReferenceSha256": { "$ref": "#/$defs/sha256" },
+        "restartReceipt": { "const": "mcp-governance-restart-receipt.json" },
+        "restartReceiptSha256": { "$ref": "#/$defs/sha256" },
+        "restartProducerSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkGovernanceRuntimeIT.java",
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkGovernanceShutdownRuntimeIT.java",
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpGovernanceRuntimeSupport.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/RedisMcpSessionRegistry.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/RedisMcpRateLimiter.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/web/McpGovernanceFilter.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/McpSessionShutdownCleanup.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/config/McpSessionProperties.java",
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/config/McpRateLimitProperties.java",
+        "pom.xml",
+        "web-starter-mcp/pom.xml",
+        "web-starter-web/package.json",
+        "scripts/create_mcp_governance_runtime_proof.py",
+        "scripts/validate_mcp_governance_runtime_proof.py",
+        "scripts/orchestrate_mcp_governance_restart.py",
+        "security/v2-ac34-ac35-mcp-governance-summary.schema.json"
+      ],
+      "properties": {
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkGovernanceRuntimeIT.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkGovernanceShutdownRuntimeIT.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpGovernanceRuntimeSupport.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/RedisMcpSessionRegistry.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/RedisMcpRateLimiter.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/web/McpGovernanceFilter.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/governance/McpSessionShutdownCleanup.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/config/McpSessionProperties.java": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/src/main/java/dev/webstarter/mcp/config/McpRateLimitProperties.java": { "$ref": "#/$defs/sha256" },
+        "pom.xml": { "$ref": "#/$defs/sha256" },
+        "web-starter-mcp/pom.xml": { "$ref": "#/$defs/sha256" },
+        "web-starter-web/package.json": { "$ref": "#/$defs/sha256" },
+        "scripts/create_mcp_governance_runtime_proof.py": { "$ref": "#/$defs/sha256" },
+        "scripts/validate_mcp_governance_runtime_proof.py": { "$ref": "#/$defs/sha256" },
+        "scripts/orchestrate_mcp_governance_restart.py": { "$ref": "#/$defs/sha256" },
+        "security/v2-ac34-ac35-mcp-governance-summary.schema.json": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

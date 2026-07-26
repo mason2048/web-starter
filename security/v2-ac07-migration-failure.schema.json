@@ -1,0 +1,397 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v2-ac07-migration-failure.schema.json",
+  "title": "V2-AC-07 migration failure rehearsal evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "acceptanceId", "status", "statusDetail", "processExitCode",
+    "generatedAt", "candidate", "tool", "failureProtection", "recovery", "images",
+    "resources", "infrastructure", "migration", "application", "logs", "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceId": {"const": "V2-AC-07"},
+    "status": {"enum": ["PASS", "FAIL", "NOT_COVERED", "ENV_REQUIRED"]},
+    "statusDetail": {
+      "enum": [
+        "COMPLETE", "FAILURE_PROTECTION_FAILED", "RECOVERY_FAILED",
+        "RECOVERY_ENV_REQUIRED", "PENDING_AC40"
+      ]
+    },
+    "processExitCode": {"enum": [0, 1, 6]},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "tree", "version", "cleanWorktree", "sourceSha256"],
+      "properties": {
+        "head": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$",
+          "not": {"pattern": "[Ss][Nn][Aa][Pp][Ss][Hh][Oo][Tt]"}
+        },
+        "cleanWorktree": {"type": "boolean"},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/rehearse_migration_failure.py",
+            "security/v2-ac07-migration-failure.schema.json",
+            "scripts/validate_v1_upgrade_evidence.py"
+          ],
+          "properties": {
+            "scripts/rehearse_migration_failure.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-ac07-migration-failure.schema.json": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_v1_upgrade_evidence.py": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "evidenceSchemaPath", "evidenceSchemaSha256"],
+      "properties": {
+        "path": {"const": "scripts/rehearse_migration_failure.py"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "evidenceSchemaPath": {"const": "security/v2-ac07-migration-failure.schema.json"},
+        "evidenceSchemaSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "failureProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL"]},
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "appExitedNonZero", "appCompletedBeforeTimeout", "readinessNeverSucceeded",
+            "applicationStartedMarkerAbsent", "intentionalMigrationFailureObserved",
+            "productionPolicyAcceptedFixture", "baseMigrationsSucceeded",
+            "failedVersionNotRecordedSuccessful", "failureVersionHistoryConsistent"
+          ],
+          "properties": {
+            "appExitedNonZero": {"type": "boolean"},
+            "appCompletedBeforeTimeout": {"type": "boolean"},
+            "readinessNeverSucceeded": {"type": "boolean"},
+            "applicationStartedMarkerAbsent": {"type": "boolean"},
+            "intentionalMigrationFailureObserved": {"type": "boolean"},
+            "productionPolicyAcceptedFixture": {"type": "boolean"},
+            "baseMigrationsSucceeded": {"type": "boolean"},
+            "failedVersionNotRecordedSuccessful": {"type": "boolean"},
+            "failureVersionHistoryConsistent": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "statusDetail", "promotionAllowed"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL", "NOT_COVERED", "ENV_REQUIRED"]},
+        "statusDetail": {"type": "string", "minLength": 1},
+        "promotionAllowed": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1},
+        "evidenceSha256": {"$ref": "#/$defs/sha256"},
+        "validator": {"$ref": "#/$defs/ac40Validator"}
+      },
+      "allOf": [
+        {
+          "if": {"required": ["status"], "properties": {"status": {"const": "PASS"}}},
+          "then": {
+            "required": ["evidenceSha256", "validator"],
+            "properties": {"promotionAllowed": {"const": true}}
+          },
+          "else": {"properties": {"promotionAllowed": {"const": false}}}
+        }
+      ],
+      "oneOf": [
+        {
+          "required": ["evidenceSha256", "validator"],
+          "not": {"required": ["reason"]},
+          "properties": {
+            "statusDetail": {
+              "enum": [
+                "AC40_INDEPENDENT_VALIDATION_PASS",
+                "AC40_INDEPENDENT_VALIDATION_FAIL",
+                "AC40_INDEPENDENT_VALIDATION_NOT_COVERED",
+                "AC40_INDEPENDENT_VALIDATION_ENV_REQUIRED"
+              ]
+            }
+          }
+        },
+        {
+          "required": ["reason"],
+          "not": {
+            "anyOf": [
+              {"required": ["evidenceSha256"]},
+              {"required": ["validator"]}
+            ]
+          },
+          "properties": {
+            "status": {"const": "NOT_COVERED"},
+            "statusDetail": {"const": "AC40_EVIDENCE_NOT_SUPPLIED"},
+            "promotionAllowed": {"const": false}
+          }
+        }
+      ]
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "mysql", "redis"],
+      "properties": {
+        "app": {"$ref": "#/$defs/appImage"},
+        "mysql": {"$ref": "#/$defs/infrastructureImage"},
+        "redis": {"$ref": "#/$defs/infrastructureImage"}
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefix", "runId", "network", "containers", "isolation", "cleanup"],
+      "properties": {
+        "prefix": {"const": "web-starter-ac07-"},
+        "runId": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+        "network": {"type": "string", "pattern": "^web-starter-ac07-[0-9a-f]{12}$"},
+        "containers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mysql", "redis", "app"],
+          "properties": {
+            "mysql": {"type": "string", "pattern": "^web-starter-ac07-mysql-[0-9a-f]{12}$"},
+            "redis": {"type": "string", "pattern": "^web-starter-ac07-redis-[0-9a-f]{12}$"},
+            "app": {"type": "string", "pattern": "^web-starter-ac07-app-[0-9a-f]{12}$"}
+          }
+        },
+        "isolation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "internalNetwork", "publishedHostPorts", "dockerVolumeMounts", "hostBindMounts",
+            "migrationBindReadOnly", "appRootFilesystemReadOnly", "immutableImageIds",
+            "exactOwnershipLabels"
+          ],
+          "properties": {
+            "internalNetwork": {"const": true},
+            "publishedHostPorts": {"const": 0},
+            "dockerVolumeMounts": {"const": 0},
+            "hostBindMounts": {"const": 1},
+            "migrationBindReadOnly": {"const": true},
+            "appRootFilesystemReadOnly": {"const": true},
+            "immutableImageIds": {"const": true},
+            "exactOwnershipLabels": {"const": true}
+          }
+        },
+        "cleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exactLabelsVerifiedBeforeRemoval", "removed", "residual", "complete"],
+          "properties": {
+            "exactLabelsVerifiedBeforeRemoval": {"const": true},
+            "removed": {"$ref": "#/$defs/resourceBooleanMap"},
+            "residual": {"$ref": "#/$defs/resourceBooleanMap"},
+            "complete": {"const": true}
+          }
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mysqlReady", "redisReady", "probeAttempts", "hostPorts", "sharedVolumes"],
+      "properties": {
+        "mysqlReady": {"const": true},
+        "redisReady": {"const": true},
+        "probeAttempts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mysql", "redis"],
+          "properties": {
+            "mysql": {"type": "integer", "minimum": 1},
+            "redis": {"type": "integer", "minimum": 1}
+          }
+        },
+        "hostPorts": {"const": 0},
+        "sharedVolumes": {"const": 0}
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "file", "contentSha256", "temporaryReadOnlyMount", "persistedAfterRun",
+        "successfulBaseRows", "successfulFailureVersionRows", "unsuccessfulFailureVersionRows",
+        "totalFailureVersionRows", "latestSuccessfulVersion"
+      ],
+      "properties": {
+        "version": {"const": "999999"},
+        "file": {"const": "V999999__ac07_intentional_failure.sql"},
+        "contentSha256": {"$ref": "#/$defs/sha256"},
+        "temporaryReadOnlyMount": {"const": true},
+        "persistedAfterRun": {"const": false},
+        "successfulBaseRows": {"type": "integer", "minimum": 0},
+        "successfulFailureVersionRows": {"type": "integer", "minimum": 0},
+        "unsuccessfulFailureVersionRows": {"type": "integer", "minimum": 0},
+        "totalFailureVersionRows": {"type": "integer", "minimum": 0},
+        "latestSuccessfulVersion": {"type": "integer", "minimum": 0}
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exitCode", "timedOut", "readinessAttempts", "readinessSuccesses", "logMarkers"],
+      "properties": {
+        "exitCode": {"type": "integer"},
+        "timedOut": {"type": "boolean"},
+        "readinessAttempts": {"type": "integer", "minimum": 0},
+        "readinessSuccesses": {"type": "integer", "minimum": 0},
+        "logMarkers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applicationStarted", "intentionalMigrationFailure", "unsafeProductionConfiguration"],
+          "properties": {
+            "applicationStarted": {"type": "integer", "minimum": 0},
+            "intentionalMigrationFailure": {"type": "integer", "minimum": 0},
+            "unsafeProductionConfiguration": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rawPersisted", "fixtureMaterialPersisted", "fixtureLeakDetected", "app", "mysql", "redis"],
+      "properties": {
+        "rawPersisted": {"const": false},
+        "fixtureMaterialPersisted": {"const": false},
+        "fixtureLeakDetected": {"const": false},
+        "app": {"$ref": "#/$defs/logDigest"},
+        "mysql": {"$ref": "#/$defs/logDigest"},
+        "redis": {"$ref": "#/$defs/logDigest"}
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outsideRepository", "directoryMode", "fileMode"],
+      "properties": {
+        "outsideRepository": {"const": true},
+        "directoryMode": {"const": "0700"},
+        "fileMode": {"const": "0600"}
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": {"const": "PASS"},
+        "statusDetail": {"const": "COMPLETE"},
+        "processExitCode": {"const": 0},
+        "candidate": {"properties": {"cleanWorktree": {"const": true}}},
+        "failureProtection": {"properties": {"status": {"const": "PASS"}}},
+        "recovery": {"properties": {"status": {"const": "PASS"}}}
+      }
+    },
+    {
+      "properties": {
+        "status": {"const": "NOT_COVERED"},
+        "statusDetail": {"const": "PENDING_AC40"},
+        "processExitCode": {"const": 6},
+        "failureProtection": {"properties": {"status": {"const": "PASS"}}},
+        "recovery": {"properties": {"status": {"const": "NOT_COVERED"}}}
+      }
+    },
+    {
+      "properties": {
+        "status": {"const": "FAIL"},
+        "statusDetail": {"const": "FAILURE_PROTECTION_FAILED"},
+        "processExitCode": {"const": 1},
+        "failureProtection": {"properties": {"status": {"const": "FAIL"}}}
+      }
+    },
+    {
+      "properties": {
+        "status": {"const": "FAIL"},
+        "statusDetail": {"const": "RECOVERY_FAILED"},
+        "processExitCode": {"const": 1},
+        "failureProtection": {"properties": {"status": {"const": "PASS"}}},
+        "recovery": {"properties": {"status": {"const": "FAIL"}}}
+      }
+    },
+    {
+      "properties": {
+        "status": {"const": "ENV_REQUIRED"},
+        "statusDetail": {"const": "RECOVERY_ENV_REQUIRED"},
+        "processExitCode": {"const": 6},
+        "failureProtection": {"properties": {"status": {"const": "PASS"}}},
+        "recovery": {"properties": {"status": {"const": "ENV_REQUIRED"}}}
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "appImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requestedReferenceSha256", "requestedDigest", "ociVersion", "ociRevision"],
+      "properties": {
+        "id": {"$ref": "#/$defs/imageId"},
+        "requestedReferenceSha256": {"$ref": "#/$defs/sha256"},
+        "requestedDigest": {"$ref": "#/$defs/imageId"},
+        "ociVersion": {"type": "string", "minLength": 1},
+        "ociRevision": {"$ref": "#/$defs/gitObject"}
+      }
+    },
+    "infrastructureImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requestedReferenceSha256"],
+      "properties": {
+        "id": {"$ref": "#/$defs/imageId"},
+        "requestedReferenceSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "resourceBooleanMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "redis", "mysql", "network"],
+      "properties": {
+        "app": {"type": "boolean"},
+        "redis": {"type": "boolean"},
+        "mysql": {"type": "boolean"},
+        "network": {"type": "boolean"}
+      }
+    },
+    "logDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "sha256"],
+      "properties": {
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "ac40Validator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "checkCount", "acceptanceCount", "phaseCount"],
+      "properties": {
+        "path": {"const": "scripts/validate_v1_upgrade_evidence.py"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "checkCount": {"type": "integer", "minimum": 1},
+        "acceptanceCount": {"type": "integer", "minimum": 1},
+        "phaseCount": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

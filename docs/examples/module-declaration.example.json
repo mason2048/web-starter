@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "name": "exampleitem",
+  "label": "示例条目",
+  "plural": "exampleitems",
+  "table": "biz_exampleitem",
+  "route": "/exampleitems",
+  "migrationVersion": "202607190001",
+  "permissionIdBase": 75100,
+  "menuId": 76100
+}

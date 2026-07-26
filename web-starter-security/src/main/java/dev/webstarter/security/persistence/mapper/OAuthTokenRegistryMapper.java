@@ -61,4 +61,15 @@ public interface OAuthTokenRegistryMapper {
             @Param("authorizationId") String authorizationId,
             @Param("currentJtiHash") String currentJtiHash,
             @Param("revokedAt") Instant revokedAt);
+
+    @Update("""
+            UPDATE sec_oauth_token_registry
+               SET revoked_at = COALESCE(revoked_at, #{revokedAt})
+             WHERE subject_type = 'SERVICE_ACCOUNT'
+               AND subject_id = #{subjectId}
+               AND token_type = 'ACCESS_TOKEN'
+            """)
+    int revokeServiceAccountAccessTokens(
+            @Param("subjectId") Long subjectId,
+            @Param("revokedAt") Instant revokedAt);
 }

@@ -38,6 +38,7 @@ public final class SystemUserDetailsService implements UserDetailsService {
         var authorities = identity.permissions().stream()
                 .map(permission -> new SimpleGrantedAuthority("PERM_" + permission))
                 .toList();
-        return new SystemUserPrincipal(caller, identity.passwordHash(), identity.enabled(), authorities);
+        return new SystemUserPrincipal(
+                caller, identity.passwordHash(), identity.enabled(), authorities, identity.securityEpoch());
     }
 }

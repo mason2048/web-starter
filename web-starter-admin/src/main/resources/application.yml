@@ -1,6 +1,9 @@
 spring:
   application:
     name: web-starter-admin
+    version: "@project.version@"
+  lifecycle:
+    timeout-per-shutdown-phase: ${WEB_STARTER_SHUTDOWN_PHASE_TIMEOUT:10s}
   threads:
     virtual:
       enabled: ${WEB_STARTER_VIRTUAL_THREADS_ENABLED:true}
@@ -11,7 +14,8 @@ spring:
     hikari:
       maximum-pool-size: ${WEB_STARTER_DB_POOL_MAX_SIZE:20}
       minimum-idle: ${WEB_STARTER_DB_POOL_MIN_IDLE:2}
-      connection-timeout: 30000
+      connection-timeout: ${WEB_STARTER_DB_CONNECTION_TIMEOUT_MS:5000}
+      validation-timeout: ${WEB_STARTER_DB_VALIDATION_TIMEOUT_MS:2000}
   data:
     redis:
       host: ${WEB_STARTER_REDIS_HOST:127.0.0.1}
@@ -25,6 +29,7 @@ spring:
       redis:
         namespace: web-starter:session
         flush-mode: on-save
+        repository-type: indexed
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -37,6 +42,7 @@ spring:
 
 server:
   port: ${WEB_STARTER_SERVER_PORT:8080}
+  shutdown: graceful
   forward-headers-strategy: framework
   servlet:
     session:
@@ -59,14 +65,22 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 management:
+  server:
+    port: ${WEB_STARTER_MANAGEMENT_PORT:8081}
+    address: ${WEB_STARTER_MANAGEMENT_BIND_ADDRESS:127.0.0.1}
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,redis
       show-details: when_authorized
   info:
     env:
@@ -75,29 +89,72 @@ management:
 info:
   app:
     name: 启程 Web Starter
-    version: 2.0.0-SNAPSHOT
+    version: ${spring.application.version}
     runtime: Java 21 / Spring Boot 4.1
 
 web-starter:
+  runtime:
+    mode: ${WEB_STARTER_RUNTIME_MODE:development}
+    git-commit: ${WEB_STARTER_GIT_COMMIT:local}
+  management:
+    security:
+      username: ${WEB_STARTER_MANAGEMENT_USERNAME:}
+      password: ${WEB_STARTER_MANAGEMENT_PASSWORD:}
   bootstrap-admin:
     username: ${WEB_STARTER_BOOTSTRAP_ADMIN_USERNAME:}
     password: ${WEB_STARTER_BOOTSTRAP_ADMIN_PASSWORD:}
     display-name: ${WEB_STARTER_BOOTSTRAP_ADMIN_DISPLAY_NAME:系统管理员}
   security:
     token-pepper: ${WEB_STARTER_TOKEN_PEPPER:}
+    credential-pepper: ${WEB_STARTER_CREDENTIAL_PEPPER:}
+    credential-pepper-active-version: ${WEB_STARTER_CREDENTIAL_PEPPER_ACTIVE_VERSION:v1}
+    credential-pepper-retiring: ${WEB_STARTER_CREDENTIAL_PEPPER_RETIRING:}
+    credential-pepper-retiring-version: ${WEB_STARTER_CREDENTIAL_PEPPER_RETIRING_VERSION:}
+    oauth-client-secret-overlap: ${WEB_STARTER_OAUTH_CLIENT_SECRET_OVERLAP:15m}
+    oauth-client-secret-max-overlap: ${WEB_STARTER_OAUTH_CLIENT_SECRET_MAX_OVERLAP:24h}
     issuer: ${WEB_STARTER_OAUTH_ISSUER:http://127.0.0.1:8080}
     resource-audience: ${WEB_STARTER_OAUTH_RESOURCE_AUDIENCE:http://127.0.0.1:8080/mcp}
     internal-tokens-enabled: ${WEB_STARTER_INTERNAL_TOKENS_ENABLED:true}
     development-keys-allowed: ${WEB_STARTER_OAUTH_DEVELOPMENT_KEYS_ALLOWED:false}
     rsa-private-key: ${WEB_STARTER_OAUTH_RSA_PRIVATE_KEY:}
     rsa-public-key: ${WEB_STARTER_OAUTH_RSA_PUBLIC_KEY:}
+    rsa-jwk-set: ${WEB_STARTER_OAUTH_RSA_JWK_SET:}
+    rsa-active-key-id: ${WEB_STARTER_OAUTH_RSA_ACTIVE_KEY_ID:}
     access-token-ttl: ${WEB_STARTER_OAUTH_ACCESS_TOKEN_TTL:10m}
     refresh-token-ttl: ${WEB_STARTER_OAUTH_REFRESH_TOKEN_TTL:8h}
+    login-rate-limit:
+      enabled: ${WEB_STARTER_LOGIN_RATE_LIMIT_ENABLED:true}
+      max-failures-per-identity: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_IDENTITY:5}
+      max-failures-per-pair: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_FAILURES_PER_PAIR:5}
+      window: ${WEB_STARTER_LOGIN_RATE_LIMIT_WINDOW:15m}
+      initial-backoff: ${WEB_STARTER_LOGIN_RATE_LIMIT_INITIAL_BACKOFF:2s}
+      max-backoff: ${WEB_STARTER_LOGIN_RATE_LIMIT_MAX_BACKOFF:15m}
   mcp:
     allowed-hosts: "${WEB_STARTER_MCP_ALLOWED_HOSTS:localhost,localhost:*,127.0.0.1,127.0.0.1:*,[::1],[::1]:*}"
     allowed-origins: "${WEB_STARTER_MCP_ALLOWED_ORIGINS:http://localhost,http://localhost:*,https://localhost,https://localhost:*,http://127.0.0.1,http://127.0.0.1:*,https://127.0.0.1,https://127.0.0.1:*,http://[::1],http://[::1]:*,https://[::1],https://[::1]:*}"
+    idempotency:
+      ttl: ${WEB_STARTER_MCP_IDEMPOTENCY_TTL:24h}
+      cleanup-interval: ${WEB_STARTER_MCP_IDEMPOTENCY_CLEANUP_INTERVAL:10m}
+    session:
+      enabled: ${WEB_STARTER_MCP_SESSION_ENABLED:true}
+      idle-ttl: ${WEB_STARTER_MCP_SESSION_IDLE_TTL:30m}
+      absolute-ttl: ${WEB_STARTER_MCP_SESSION_ABSOLUTE_TTL:8h}
+      max-per-subject: ${WEB_STARTER_MCP_SESSION_MAX_PER_SUBJECT:8}
+      reservation-ttl: ${WEB_STARTER_MCP_SESSION_RESERVATION_TTL:30s}
+    rate-limit:
+      enabled: ${WEB_STARTER_MCP_RATE_LIMIT_ENABLED:true}
+      window: ${WEB_STARTER_MCP_RATE_LIMIT_WINDOW:1m}
+      max-per-subject: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_SUBJECT:240}
+      max-per-client: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PER_CLIENT:480}
+      max-read: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_READ:180}
+      max-write: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_WRITE:60}
+      max-destructive: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_DESTRUCTIVE:20}
+      max-protocol: ${WEB_STARTER_MCP_RATE_LIMIT_MAX_PROTOCOL:120}
 
 logging:
+  structured:
+    format:
+      console: ${WEB_STARTER_LOG_FORMAT:ecs}
   pattern:
     level: "%5p [traceId=%X{traceId:-}]"
   level:

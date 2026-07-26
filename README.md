@@ -49,15 +49,28 @@ cp .env.example .env
 替换 `.env` 中所有占位值。首次空库启动需要设置高强度 Bootstrap 管理员密码；项目不包含默认密码。
 
 ```bash
-docker compose up --build -d
-docker compose ps
+chmod 600 .env
+./bin/web-starter doctor
+./bin/web-starter up
 ```
+
+`up` 会等待 MySQL、Redis、应用与 Nginx 全部达到就绪状态。日常停止使用 `./bin/web-starter down`，默认保留数据卷；删除数据卷必须显式选择并完成第二次确认。完整参数与安全边界见[离线生成与开发工具](docs/tooling.md)。
 
 默认管理端地址为 `http://localhost:8088`。首次登录成功后，应移除 Bootstrap 密码环境变量并重建应用容器。
 
-本地分进程开发、可执行的 `compose.public-mcp.yaml` 双入口、TLS 证书挂载、RSA 密钥配置、备份恢复和不可变镜像回滚见 [部署说明](docs/deployment.md)。公网入口必须使用 HTTPS，并且不能直接暴露标记为 `private` 的默认管理入口。
+Actuator 的非健康端点不使用 Web 管理员 Session。`info`、`metrics`、`prometheus` 需要独立的 `WEB_STARTER_MANAGEMENT_USERNAME` / `WEB_STARTER_MANAGEMENT_PASSWORD`，生产缺失时拒绝启动；Nginx 不公开这些路径。具体采集和秘密处理要求见[部署与运维](docs/deployment.md#运维指标认证)，正式 V2 指标与 Trace 验收见[可观测性运行证据](docs/observability-runtime-evidence.md)。
+
+本地分进程开发、可执行的 `compose.public-mcp.yaml` 双入口、独立无现场构建的 `compose.production.yaml`、TLS 证书挂载、备份恢复和 digest 回滚见 [部署说明](docs/deployment.md)。SBOM、实际 digest 扫描与漏洞例外规则见[供应链与发布镜像](docs/supply-chain.md)。公网入口必须使用 HTTPS，并且不能直接暴露标记为 `private` 的默认管理入口。
 
 ## 开发校验
+
+统一证据采集入口是：
+
+```bash
+./bin/web-starter verify
+```
+
+它分别记录后端、前端、策略、容器、浏览器、OAuth 与 MCP 的状态；某层失败后继续采集后续证据。缺少真实运行环境或验收实现时会明确记录 `ENV_REQUIRED`/`NOT_COVERED` 并返回非零，而不会用构建成功代替全栈通过。以下命令仍可用于单层排查：
 
 ```bash
 ./mvnw verify
@@ -88,7 +101,7 @@ python3 scripts/repository_policy.py secrets
 
 每个凭据最终映射为统一 `CurrentCaller`。令牌调用的最终授权结果为“主体实时 RBAC”与“令牌 Scope”的交集；禁用用户/服务账号、撤销令牌或回收角色权限会立即影响后续调用。
 
-长期令牌只保存 HMAC-SHA-256 哈希和短提示，明文仅在创建响应中出现一次。外部入口由 Nginx 标记为 `public`，应用会拒绝 PAT 与服务账号长期令牌。详细威胁边界见 [安全模型](docs/security.md)。
+长期令牌只保存带 Pepper 版本的 HMAC-SHA-256 哈希和短提示，明文仅在创建响应中出现一次；旧 Pepper 验证成功后可事务迁移。OAuth Client Secret 支持有截止时间的 active/retiring 重叠轮换。外部入口由 Nginx 标记为 `public`，应用会拒绝 PAT 与服务账号长期令牌。详细威胁边界见 [安全模型](docs/security.md)。
 
 ## MCP Server
 
@@ -108,6 +121,8 @@ python3 scripts/repository_policy.py secrets
 
 首版还提供只读 Resource `web-starter://system/info`，以及 Prompt `project.summary`。每个入口都显式映射权限编码，并写入 MCP 调用日志；Project 写操作同时进入通用操作审计。
 
+V2 Agent 调用 `project.create`、`project.update`、`project.remove` 时应提供 16–128 字符的 `idempotencyKey`。同一 Caller、Tool、Key 与参数的安全重试返回首次结果；同一 Key 配不同参数返回稳定冲突错误。为兼容 V1，过渡期仍接受不带 Key 的调用，但这类调用没有重试去重保证。数据库与审计只保存 Key 的 SHA-256 摘要，不保存明文 Key。
+
 ## 扩展
 
 新增模块时以 `web-starter-project` 为模板，并遵循 [模块复制规范](docs/module-copy-guide.md)。数据库结构只能通过新的 Flyway 迁移演进，已应用迁移不得修改。
@@ -119,6 +134,9 @@ python3 scripts/repository_policy.py secrets
 - [V1 验收证据模板](docs/acceptance/v1-evidence-template.md)
 - [V1 验收记录（2026-07-19）](docs/acceptance/v1-acceptance-2026-07-19.md)
 - [V2 验收基线](docs/acceptance/v2-acceptance-baseline.md)
+- [V2 验收证据模板](docs/acceptance/v2-evidence-template.md)
+- [V2-AC-01 冻结 V1 来源溯源证据](docs/v1-source-provenance-evidence.md)
+- [固定 9+2 运行报告证据](docs/acceptance/release-runtime-test-reports.md)
 - [V1 到 V2 兼容契约](docs/compatibility/v1-to-v2.md)
 - [首版架构决策](docs/decisions/0001-foundation.md)
 - [V2 工程产品化决策](docs/decisions/0002-v2-productization.md)
@@ -126,4 +144,6 @@ python3 scripts/repository_policy.py secrets
 - [部署与运维](docs/deployment.md)
 - [安全模型](docs/security.md)
 - [仓库策略门禁](docs/repository-policy.md)
+- [供应链与发布镜像](docs/supply-chain.md)
 - [模块复制规范](docs/module-copy-guide.md)
+- [派生项目与生成模块验收演练](docs/generator-acceptance-rehearsal.md)

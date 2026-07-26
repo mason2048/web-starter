@@ -37,6 +37,49 @@ class RepositoryPolicyTest(unittest.TestCase):
 
             self.assertEqual([], findings)
 
+    def test_secret_scan_accepts_schema_structures_but_scans_nested_literals(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            schema = root / "schema.json"
+            schema.write_text(
+                '{\n'
+                '  "bootstrapCredential": {"$ref": "#/$defs/bootstrapCredential"},\n'
+                '  "$defs": {\n'
+                '    "bootstrapCredential": {\n'
+                '      "type": "object"\n'
+                '    }\n'
+                '  }\n'
+                '}\n',
+                encoding="utf-8",
+            )
+            config = root / "application.json"
+            config.write_text(
+                '{\n'
+                '  "credentials": {\n'
+                '    "password": "genuinely-secret-value"\n'
+                '  }\n'
+                '}\n',
+                encoding="utf-8",
+            )
+
+            findings = policy.scan_secrets(
+                [
+                    self.candidate(root, "schema.json"),
+                    self.candidate(root, "application.json"),
+                ]
+            )
+
+            self.assertEqual(
+                [
+                    policy.Finding(
+                        "application.json",
+                        3,
+                        "literal-sensitive-value",
+                    )
+                ],
+                findings,
+            )
+
     def test_secret_scan_detects_provider_key_literal_and_key_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -48,16 +91,27 @@ class RepositoryPolicyTest(unittest.TestCase):
             )
             key_file = root / "server.key"
             key_file.write_text("not-real-key-material\n", encoding="utf-8")
+            embedded_key = root / "fixture.txt"
+            embedded_key.write_bytes(
+                (b"-----BEGIN RSA " + b"PRIVATE KEY-----\n")
+                + b"not-real-key-material\n"
+            )
 
             findings = policy.scan_secrets(
                 [
                     self.candidate(root, "application.yml"),
                     self.candidate(root, "server.key"),
+                    self.candidate(root, "fixture.txt"),
                 ]
             )
 
             self.assertEqual(
-                {"cloud-access-key", "credential-file", "literal-sensitive-value"},
+                {
+                    "cloud-access-key",
+                    "credential-file",
+                    "literal-sensitive-value",
+                    "private-key-material",
+                },
                 {finding.rule for finding in findings},
             )
 

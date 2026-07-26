@@ -14,6 +14,25 @@ export interface CurrentUser {
   traceId?: string
 }
 
+export interface ChangeOwnPasswordPayload {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface WebSessionSummary {
+  reference: string
+  current: boolean
+  createdAt: string
+  lastAccessedAt: string
+  expiresAt: string
+  ipAddress?: string
+  userAgent?: string
+}
+
+export interface RevokedSessionsResult {
+  revoked: number
+}
+
 export interface IssueTokenPayload {
   name: string
   scopes: string[]
@@ -79,6 +98,10 @@ export interface OAuthClient {
   requireConsent: boolean
   requirePkce: boolean
   serviceAccountId?: string
+  clientSecretVersion?: string
+  retiringClientSecretVersion?: string
+  retiringClientSecretExpiresAt?: string
+  clientSecretRotatedAt?: string
   enabled: boolean
   createdAt?: string
   updatedAt?: string
@@ -252,5 +275,15 @@ export interface McpCallLog {
   ipAddress?: string
   traceId?: string
   errorCode?: string
+  idempotencyKeyHash?: string
+  replayed?: boolean
   createdAt?: string
+}
+
+export interface TraceAudit {
+  traceId: string
+  loginLogs: LoginLog[]
+  operationLogs: OperationLog[]
+  mcpCalls: McpCallLog[]
+  truncated: boolean
 }

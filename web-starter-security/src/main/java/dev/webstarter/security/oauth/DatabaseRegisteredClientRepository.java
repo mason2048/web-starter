@@ -71,7 +71,7 @@ public final class DatabaseRegisteredClientRepository implements RegisteredClien
                         .reuseRefreshTokens(false)
                         .build());
         if (record.clientSecretHash() != null && !record.clientSecretHash().isBlank()) {
-            builder.clientSecret(record.clientSecretHash());
+            builder.clientSecret(OAuthClientSecretEnvelope.encode(record));
         }
         return builder.build();
     }

@@ -8,6 +8,7 @@ import type {
   OperationLog,
   PermissionRecord,
   RoleRecord,
+  TraceAudit,
   UserRecord,
 } from '@/types/models'
 
@@ -142,4 +143,5 @@ export const logsApi = {
   login: (params: PageQuery) => collection<LoginLog>('/logs/login', params),
   operation: (params: PageQuery) => collection<OperationLog>('/logs/operation', params),
   mcp: (params: PageQuery) => collection<McpCallLog>('/logs/mcp', params),
+  trace: (traceId: string) => request<TraceAudit>({ url: `/logs/trace/${encodeURIComponent(traceId)}`, method: 'GET' }),
 }

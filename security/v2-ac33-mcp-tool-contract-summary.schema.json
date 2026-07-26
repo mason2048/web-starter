@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://web-starter.invalid/schema/v2-ac33-mcp-tool-contract-summary.schema.json",
+  "title": "V2-AC-33 MCP Tool contract canonical evidence summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "status",
+    "acceptanceId",
+    "candidate",
+    "runtime",
+    "protocol",
+    "writeTools",
+    "stableErrors",
+    "legacyCompatibility",
+    "sources",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "const": "PASS"
+    },
+    "acceptanceId": {
+      "const": "V2-AC-33"
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version", "tag"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "tree": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        },
+        "tag": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composeProject", "tracePrefix"],
+      "properties": {
+        "composeProject": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"},
+        "tracePrefix": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"}
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sdkArtifact",
+        "sdkVersion",
+        "protocolVersion",
+        "testClass",
+        "testMethod",
+        "tests",
+        "failures",
+        "errors",
+        "skipped",
+        "flakes",
+        "baselineTools"
+      ],
+      "properties": {
+        "sdkArtifact": {"const": "io.modelcontextprotocol.sdk:mcp"},
+        "sdkVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$"
+        },
+        "protocolVersion": {"const": "2025-11-25"},
+        "testClass": {"const": "dev.webstarter.mcp.acceptance.McpSdkToolContractRuntimeIT"},
+        "testMethod": {"const": "provesExactBaselineSchemasAnnotationsErrorsAndV1WriteCompatibility"},
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "flakes": {"const": 0},
+        "baselineTools": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "system.info"},
+            {"const": "project.list"},
+            {"const": "project.get"},
+            {"const": "project.create"},
+            {"const": "project.update"},
+            {"const": "project.remove"},
+            {"const": "audit.list"}
+          ],
+          "items": false,
+          "minItems": 7,
+          "maxItems": 7
+        }
+      }
+    },
+    "writeTools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project.create", "project.update", "project.remove"],
+      "properties": {
+        "project.create": {"$ref": "#/$defs/createTool"},
+        "project.update": {"$ref": "#/$defs/destructiveTool"},
+        "project.remove": {"$ref": "#/$defs/destructiveTool"}
+      }
+    },
+    "stableErrors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaPattern", "observed"],
+      "properties": {
+        "schemaPattern": {
+          "const": "^(?:FORBIDDEN|INVALID_ARGUMENT|IDEMPOTENCY_CONFLICT|IDEMPOTENCY_IN_PROGRESS|INTERNAL_ERROR|BUSINESS_[0-9]{4})$"
+        },
+        "observed": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "INVALID_ARGUMENT"},
+            {"const": "BUSINESS_4090"},
+            {"const": "BUSINESS_4004"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    },
+    "legacyCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clientName", "clientVersion", "omittedArgument", "successfulCalls", "migration"],
+      "properties": {
+        "clientName": {"const": "web-starter-v1-contract-client"},
+        "clientVersion": {"const": "1.0.0"},
+        "omittedArgument": {"const": "idempotencyKey"},
+        "successfulCalls": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "project.create"},
+            {"const": "project.update"},
+            {"const": "project.remove"}
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "migration": {
+          "const": "V2 clients should send a retry key; the V1 no-key path remains accepted"
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 10,
+      "maxProperties": 10,
+      "propertyNames": {
+        "enum": [
+          "pom.xml",
+          "scripts/create_mcp_tool_contract_runtime_proof.py",
+          "scripts/validate_mcp_tool_contract_runtime_proof.py",
+          "security/v2-ac33-mcp-tool-contract-summary.schema.json",
+          "web-starter-mcp/pom.xml",
+          "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpInvocationService.java",
+          "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpToolCatalog.java",
+          "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpRuntimeToolExpectations.java",
+          "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkToolContractRuntimeIT.java",
+          "web-starter-web/package.json"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proofFile", "proofSha256", "reportFile", "reportSha256"],
+      "properties": {
+        "proofFile": {"const": "mcp-tool-contract-runtime-proof.properties"},
+        "proofSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reportFile": {
+          "const": "TEST-dev.webstarter.mcp.acceptance.McpSdkToolContractRuntimeIT.xml"
+        },
+        "reportSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "annotationSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"],
+      "properties": {
+        "readOnlyHint": {"const": false},
+        "destructiveHint": {"type": "boolean"},
+        "idempotentHint": {"type": "boolean"},
+        "openWorldHint": {"const": false}
+      }
+    },
+    "createTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outputSchema", "annotations"],
+      "properties": {
+        "outputSchema": {"const": true},
+        "annotations": {
+          "allOf": [
+            {"$ref": "#/$defs/annotationSet"},
+            {
+              "type": "object",
+              "properties": {
+                "destructiveHint": {"const": false},
+                "idempotentHint": {"const": false}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "destructiveTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outputSchema", "annotations"],
+      "properties": {
+        "outputSchema": {"const": true},
+        "annotations": {
+          "allOf": [
+            {"$ref": "#/$defs/annotationSet"},
+            {
+              "type": "object",
+              "properties": {
+                "destructiveHint": {"const": true},
+                "idempotentHint": {"const": true}
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

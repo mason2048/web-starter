@@ -25,6 +25,9 @@ flowchart LR
     ExternalAgent["外网 Agent"] --> PublicIngress["独立 HTTPS MCP 入口"]
     PublicIngress --> App["Spring Boot 模块化单体"]
     Nginx --> App
+    Probe["匿名健康探针"] --> Management["独立 Management 端口"]
+    Operator["受控运维采集器"] -->|"专用运维认证"| Management
+    Management --> App
     App --> Security["Spring Security + Authorization Server"]
     App --> Services["共享业务 Service 与事务"]
     Services --> MySQL[(MySQL)]
@@ -35,6 +38,8 @@ flowchart LR
 ```
 
 Web Controller 和 MCP Tool 只负责协议适配，都调用同一 Service。权限校验位于 Service 或统一 MCP 调用边界；Mapper 不向协议层直接暴露。写业务数据和成功审计记录处于同一事务，失败调用使用独立事务保留审计证据。
+
+Management 端口不属于 Web 或 MCP 调用面。健康探针匿名，`info`、`metrics`、`prometheus` 使用独立无状态 Spring Security 身份；Web Session、OAuth、PAT 和服务账号都不能自然获得该权限。两个 Nginx 入口不代理非健康运维端点。
 
 ## Maven 模块
 
@@ -66,8 +71,8 @@ Web Controller 和 MCP Tool 只负责协议适配，都调用同一 Service。�
 | `sys_mcp_call_log` | MCP 调用审计 | Tool、权限、凭据、结果、Trace ID |
 | `biz_project` | 示例项目 | 项目编码唯一、逻辑删除、乐观锁版本 |
 | `sec_service_account` | 自动化主体 | 角色集合、启停状态 |
-| `sec_access_credential` | PAT 与服务账号长期令牌 | 只存 HMAC 哈希、Scope、期限、IP、吊销/最后使用时间 |
-| `sec_oauth_client` | 预注册 OAuth Client | Grant、认证方式、Redirect URI、Scope、服务账号绑定 |
+| `sec_access_credential` | PAT 与服务账号长期令牌 | 只存带 Pepper 版本的 HMAC 哈希、Scope、期限、IP、吊销/最后使用时间 |
+| `sec_oauth_client` | 预注册 OAuth Client | Grant、认证方式、Redirect URI、Scope、服务账号绑定，以及 active/retiring Secret 哈希版本和截止时间 |
 | `sec_oauth_token_registry` | 短时 OAuth Token 撤销登记 | 只存 JTI 哈希，不保存 Bearer Token |
 | `oauth2_authorization` | Authorization Server 协议状态 | code/state/token 值在持久化前哈希 |
 | `oauth2_authorization_consent` | 用户授权同意 | Client 与用户联合主键 |

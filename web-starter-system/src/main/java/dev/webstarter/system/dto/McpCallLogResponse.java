@@ -15,6 +15,8 @@ public record McpCallLogResponse(
         Long durationMs,
         String ipAddress,
         String errorCode,
+        String idempotencyKeyHash,
+        Boolean replayed,
         String traceId,
         LocalDateTime createdAt
 ) {

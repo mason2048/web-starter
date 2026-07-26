@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v2-observability-runtime-summary.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "acceptanceIds", "status", "candidate", "runtime", "checks", "evidence"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceIds": {"const": ["V2-AC-37"]},
+    "status": {"const": "PASS"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gitCommit", "gitTree", "tagObject", "releaseVersion", "releaseTag"],
+      "properties": {
+        "gitCommit": {"$ref": "#/$defs/objectId"},
+        "gitTree": {"$ref": "#/$defs/objectId"},
+        "tagObject": {"$ref": "#/$defs/objectId"},
+        "releaseVersion": {"$ref": "#/$defs/version"},
+        "releaseTag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composeProject", "images", "runtimeIdentitySha256"],
+      "properties": {
+        "composeProject": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"},
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app", "nginx"],
+          "properties": {
+            "app": {"$ref": "#/$defs/image"},
+            "nginx": {"$ref": "#/$defs/image"}
+          }
+        },
+        "runtimeIdentitySha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "minProperties": 12,
+      "additionalProperties": {"const": "PASS"}
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baselineSha256", "runtimeSha256", "sourceSha256"],
+      "properties": {
+        "baselineSha256": {"$ref": "#/$defs/sha256"},
+        "runtimeSha256": {"$ref": "#/$defs/sha256"},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/verify_operational_metrics.py",
+            "scripts/validate_observability_evidence.py",
+            "security/v2-observability-runtime-summary.schema.json",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/OperationalMetricsConfiguration.java",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/ProtocolMetricsFilter.java",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/TraceIdFilter.java",
+            "web-starter-admin/src/main/resources/application.yml",
+            "web-starter-system/src/main/java/dev/webstarter/system/service/impl/AuditLogRecorderImpl.java",
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/web/McpGovernanceFilter.java"
+          ],
+          "properties": {
+            "scripts/verify_operational_metrics.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_observability_evidence.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-observability-runtime-summary.schema.json": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/OperationalMetricsConfiguration.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/ProtocolMetricsFilter.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/TraceIdFilter.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/resources/application.yml": {"$ref": "#/$defs/sha256"},
+            "web-starter-system/src/main/java/dev/webstarter/system/service/impl/AuditLogRecorderImpl.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/web/McpGovernanceFilter.java": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "objectId": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "imageId"],
+      "properties": {
+        "reference": {"type": "string", "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"},
+        "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -33,7 +33,10 @@
 
 1. 从 `v1.0.0` 镜像或源码创建数据库与凭据数据。
 2. 记录升级前版本、Flyway、关键表行数和可用调用。
-3. 使用 V2 不可变镜像执行追加迁移。
-4. 记录升级后 Flyway、关键表行数和新旧功能结果。
-5. 完成 Web 登录、Project CRUD、403、OAuth PKCE、Client Credentials、PAT 私/公网边界、官方 MCP SDK 与审计读回。
-6. 保留脱敏证据；不保存密码、Cookie、Token、Client Secret、Pepper 或私钥。
+3. 从密钥管理系统取得 V1 签名钥的受控版本，并从实际未过期 JWT 记录 V1 `kid`。V2 key-ring 必须以新私钥作为 active，并以相同 V1 `kid` 保留旧公钥作为 public-only retiring key，时间至少覆盖旧 Access Token 最大剩余 TTL。
+4. 使用 V2 不可变镜像执行追加迁移。在签发任何新 Token 前，先用升级前未过期 Token 调用官方 MCP SDK；若旧 `kid` 未被验证则升级失败。
+5. 记录升级后 Flyway、关键表行数和新旧功能结果；确认新 Token 使用 active `kid`，旧 Token 在保留窗口内仍可验证。
+6. 完成 Web 登录、Project CRUD、403、OAuth PKCE、Client Credentials、PAT 私/公网边界、官方 MCP SDK 与审计读回。
+7. 保留脱敏证据；不保存密码、Cookie、Token、Client Secret、Pepper 或私钥。V1 私钥只能留在密钥管理系统或验收私有临时目录，不进入数据备份包和验收 Artifact。
+
+固定执行入口、V1 tag 与当前 release adapter 的边界、PKCS#8 兼容预检、fail-closed 状态和资源清理要求见 [V1 → V2 升级与恢复演练入口](../v1-to-v2-upgrade-rehearsal.md)。特别注意：`v1.0.0` 的 `scripts/` 不包含 runtime fixture adapter；演练只能从 clean V2 commit 把当前候选 adapter 做私密、哈希绑定的快照，再以绝对文件路径和明确 `PYTHONPATH` 执行，不能用 `python -m scripts...` 冒充 V1 tag 内脚本。固定入口会真实签发 V1 PKCE refresh token；只有 V2 rotation、旧 access latest-only、reuse 整族吊销、官方 MCP SDK 和数据库读回全部通过，凭据兼容项才能记录 `PASS / V1_REFRESH_ROTATION_REUSE_PASS`。任何一步未执行仍为 `NOT_COVERED`，网络结果不明确则为 `FAIL` 且不得重试。

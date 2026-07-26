@@ -12,6 +12,8 @@ public class SysUser extends AbstractSystemEntity {
     private String email;
     private String mobile;
     private String status;
+    private Long securityEpoch;
+    private java.time.LocalDateTime passwordChangedAt;
 
     @Version
     private Integer version;
@@ -28,6 +30,10 @@ public class SysUser extends AbstractSystemEntity {
     public void setMobile(String mobile) { this.mobile = mobile; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public Long getSecurityEpoch() { return securityEpoch; }
+    public void setSecurityEpoch(Long securityEpoch) { this.securityEpoch = securityEpoch; }
+    public java.time.LocalDateTime getPasswordChangedAt() { return passwordChangedAt; }
+    public void setPasswordChangedAt(java.time.LocalDateTime passwordChangedAt) { this.passwordChangedAt = passwordChangedAt; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
 }

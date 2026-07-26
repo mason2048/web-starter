@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v1-ac38-operations-documentation-summary.schema.json",
+  "title": "V1 AC-38 operations documentation canonical summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "acceptanceIds", "status", "candidate", "checks", "evidence"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "acceptanceIds": {"const": ["AC-38"]},
+    "status": {"const": "PASS"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "tag", "version"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"}
+      }
+    },
+    "checks": {
+      "const": {
+        "operationsDocumentationReview": "PASS",
+        "sourceIntegrity": "PASS"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proofSha256", "migrationVersions", "sourceSha256"],
+      "properties": {
+        "proofSha256": {"$ref": "#/$defs/sha256"},
+        "migrationVersions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "sourceSha256": {
+          "type": "object",
+          "minProperties": 8,
+          "propertyNames": {"pattern": "^[A-Za-z0-9._/-]+$"},
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}(?:[0-9a-f]{24})?$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

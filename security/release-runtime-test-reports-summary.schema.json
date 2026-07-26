@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/security/release-runtime-test-reports-summary.schema.json",
+  "title": "releaseRuntimeTestReports canonical evidence summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "evidenceType",
+    "status",
+    "candidate",
+    "run",
+    "coverage",
+    "reports",
+    "sources"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "evidenceType": {"const": "releaseRuntimeTestReports"},
+    "status": {"const": "PASS"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "version", "tag", "tagObject"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/objectId"},
+        "tree": {"$ref": "#/$defs/objectId"},
+        "version": {"$ref": "#/$defs/version"},
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "tagObject": {"$ref": "#/$defs/objectId"}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startedAtEpochNs"],
+      "properties": {
+        "startedAtEpochNs": {"type": "integer", "minimum": 1}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playwright", "surefire"],
+      "properties": {
+        "playwright": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reportFile", "tests", "passed", "skipped", "retries", "projectName", "specs"],
+          "properties": {
+            "reportFile": {"const": "playwright-release-runtime.json"},
+            "tests": {"const": 20},
+            "passed": {"const": 20},
+            "skipped": {"const": 0},
+            "retries": {"const": 0},
+            "projectName": {"const": "default"},
+            "specs": {
+              "type": "array",
+              "minItems": 20,
+              "maxItems": 20,
+              "uniqueItems": true,
+              "items": {
+                "oneOf": [
+                  {"$ref": "#/$defs/specReleaseCrud"},
+                  {"$ref": "#/$defs/specReleaseManagementPages"},
+                  {"$ref": "#/$defs/specReleaseOperationAudit"},
+                  {"$ref": "#/$defs/specReleaseOAuth"},
+                  {"$ref": "#/$defs/specReleaseSessions"},
+                  {"$ref": "#/$defs/specReleaseCredentials"},
+                  {"$ref": "#/$defs/specReleaseAudit"},
+                  {"$ref": "#/$defs/specQualityLogin"},
+                  {"$ref": "#/$defs/specQualityCrudStates"},
+                  {"$ref": "#/$defs/specQualityErrors"},
+                  {"$ref": "#/$defs/specQualityResponsive"},
+                  {"$ref": "#/$defs/specManagementUsers"},
+                  {"$ref": "#/$defs/specManagementRoles"},
+                  {"$ref": "#/$defs/specManagementAdminContinuity"},
+                  {"$ref": "#/$defs/specManagementMenuWithdrawal"},
+                  {"$ref": "#/$defs/specManagementCreateDenied"},
+                  {"$ref": "#/$defs/specManagementPermissions"},
+                  {"$ref": "#/$defs/specManagementConfigs"},
+                  {"$ref": "#/$defs/specManagementProjectQuery"},
+                  {"$ref": "#/$defs/specManagementProjectWrites"}
+                ]
+              }
+            }
+          }
+        },
+        "surefire": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "oneOf": [
+              {"$ref": "#/$defs/sdkRuntime"},
+              {"$ref": "#/$defs/sdkProjectListRuntime"}
+            ]
+          }
+        }
+      }
+    },
+    "reports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "playwright-release-runtime.json",
+        "TEST-dev.webstarter.mcp.acceptance.McpSdkRuntimeIT.xml",
+        "TEST-dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT.xml"
+      ],
+      "properties": {
+        "playwright-release-runtime.json": {"$ref": "#/$defs/sha256"},
+        "TEST-dev.webstarter.mcp.acceptance.McpSdkRuntimeIT.xml": {"$ref": "#/$defs/sha256"},
+        "TEST-dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT.xml": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pom.xml",
+        "web-starter-mcp/pom.xml",
+        "web-starter-web/package.json",
+        "web-starter-web/pnpm-lock.yaml",
+        "web-starter-web/playwright.config.ts",
+        "web-starter-web/e2e/release-runtime.spec.ts",
+        "web-starter-web/e2e/frontend-quality-runtime.spec.ts",
+        "web-starter-web/e2e/v1-management-runtime.spec.ts",
+        "web-starter-web/contracts/private-api.openapi.json",
+        "web-starter-web/src/api/generated/privateApiContract.ts",
+        "web-starter-web/scripts/check-private-api-contract.mjs",
+        "web-starter-web/scripts/check-private-api-contract.spec.js",
+        "web-starter-web/bundle-budget.json",
+        "web-starter-web/scripts/check-bundle-budget.mjs",
+        "web-starter-web/scripts/check-bundle-budget.spec.js",
+        "web-starter-web/src/api/projects.ts",
+        "web-starter-web/src/crud/useStandardCrudPage.ts",
+        "web-starter-web/src/crud/useStandardCrudPage.spec.ts",
+        "web-starter-web/src/views/ProjectsView.vue",
+        "web-starter-web/src/navigation/manifest.ts",
+        "web-starter-web/src/navigation/manifest.spec.ts",
+        "web-starter-web/src/router/index.ts",
+        "web-starter-web/src/components/SidebarNav.vue",
+        "web-starter-web/src/components/BreadcrumbNav.vue",
+        "web-starter-web/src/components/CommandSearch.vue",
+        "web-starter-tooling/src/main/java/dev/webstarter/tooling/dev/DeveloperCommands.java",
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkRuntimeIT.java",
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkProjectListRuntimeIT.java",
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpRuntimeToolExpectations.java",
+        "scripts/create_release_runtime_test_reports_proof.py",
+        "scripts/validate_release_runtime_test_reports_proof.py",
+        "security/release-runtime-test-reports-summary.schema.json"
+      ],
+      "properties": {
+        "pom.xml": {"$ref": "#/$defs/sha256"},
+        "web-starter-mcp/pom.xml": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/package.json": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/pnpm-lock.yaml": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/playwright.config.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/e2e/release-runtime.spec.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/e2e/frontend-quality-runtime.spec.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/e2e/v1-management-runtime.spec.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/contracts/private-api.openapi.json": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/api/generated/privateApiContract.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/scripts/check-private-api-contract.mjs": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/scripts/check-private-api-contract.spec.js": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/bundle-budget.json": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/scripts/check-bundle-budget.mjs": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/scripts/check-bundle-budget.spec.js": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/api/projects.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/crud/useStandardCrudPage.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/crud/useStandardCrudPage.spec.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/views/ProjectsView.vue": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/navigation/manifest.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/navigation/manifest.spec.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/router/index.ts": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/components/SidebarNav.vue": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/components/BreadcrumbNav.vue": {"$ref": "#/$defs/sha256"},
+        "web-starter-web/src/components/CommandSearch.vue": {"$ref": "#/$defs/sha256"},
+        "web-starter-tooling/src/main/java/dev/webstarter/tooling/dev/DeveloperCommands.java": {"$ref": "#/$defs/sha256"},
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkRuntimeIT.java": {"$ref": "#/$defs/sha256"},
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpSdkProjectListRuntimeIT.java": {"$ref": "#/$defs/sha256"},
+        "web-starter-mcp/src/test/java/dev/webstarter/mcp/acceptance/McpRuntimeToolExpectations.java": {"$ref": "#/$defs/sha256"},
+        "scripts/create_release_runtime_test_reports_proof.py": {"$ref": "#/$defs/sha256"},
+        "scripts/validate_release_runtime_test_reports_proof.py": {"$ref": "#/$defs/sha256"},
+        "security/release-runtime-test-reports-summary.schema.json": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "objectId": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$", "not": {"pattern": "[Ss][Nn][Aa][Pp][Ss][Hh][Oo][Tt]"}},
+    "specReleaseCrud": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "private Web UI performs Project CRUD, trace correlation and responsive rendering"}}},
+    "specReleaseManagementPages": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "all frozen management pages expose usable primary browser controls"}}},
+    "specReleaseOperationAudit": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "management write domains persist complete operation audit records"}}},
+    "specReleaseOAuth": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "public OAuth authorization-code flow requires PKCE and yields a usable MCP token"}}},
+    "specReleaseSessions": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "personal security manages real browser sessions and prevents self-elevation"}}},
+    "specReleaseCredentials": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "credential management filters lifecycle states without redisplaying secrets"}}},
+    "specReleaseAudit": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/release-runtime.spec.ts"}, "title": {"const": "audit search filters login operation and MCP records with correlated redacted traces"}}},
+    "specQualityLogin": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/frontend-quality-runtime.spec.ts"}, "title": {"const": "real login endpoint applies generic progressive protection without blocking another account"}}},
+    "specQualityCrudStates": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/frontend-quality-runtime.spec.ts"}, "title": {"const": "query, pagination, loading, empty and validation states remain usable in a real browser"}}},
+    "specQualityErrors": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/frontend-quality-runtime.spec.ts"}, "title": {"const": "401, 403, 404, 409, 429 and 500 states have stable browser behavior and trace IDs"}}},
+    "specQualityResponsive": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/frontend-quality-runtime.spec.ts"}, "title": {"const": "desktop, tablet and 390px layouts pass keyboard and basic accessibility checks"}}},
+    "specManagementUsers": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-06 user management completes the full browser lifecycle with operation audits"}}},
+    "specManagementRoles": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-07 role CRUD assigns permissions and menus, rejects stale versions and revokes the next request"}}},
+    "specManagementAdminContinuity": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-08 administrator continuity rejects self lockout, last-admin loss and built-in role weakening"}}},
+    "specManagementMenuWithdrawal": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-09 withdrawing a role menu removes navigation and routes the existing user to 403"}}},
+    "specManagementCreateDenied": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-10 missing create permission hides the button and the manual API call still returns 403"}}},
+    "specManagementPermissions": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-11 permission dictionary enforces unique codes, controllable status and protected assignments"}}},
+    "specManagementConfigs": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-12 non-sensitive configuration is maintained in the browser while secret-like keys are rejected"}}},
+    "specManagementProjectQuery": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-13 project list supports paging cap keyword status filters and browser details"}}},
+    "specManagementProjectWrites": {"$ref": "#/$defs/specBase", "properties": {"file": {"const": "web-starter-web/e2e/v1-management-runtime.spec.ts"}, "title": {"const": "AC-14 project writes enforce uniqueness validation optimistic conflict and logical deletion"}}},
+    "specBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "title"],
+      "properties": {
+        "file": {"type": "string"},
+        "title": {"type": "string"}
+      }
+    },
+    "sdkRuntime": {
+      "$ref": "#/$defs/surefireBase",
+      "properties": {
+        "reportFile": {"const": "TEST-dev.webstarter.mcp.acceptance.McpSdkRuntimeIT.xml"},
+        "testClass": {"const": "dev.webstarter.mcp.acceptance.McpSdkRuntimeIT"},
+        "testMethod": {"const": "initializesDiscoversReadsAndCallsThroughTheOfficialSdk"},
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "retries": {"const": 0}
+      }
+    },
+    "sdkProjectListRuntime": {
+      "$ref": "#/$defs/surefireBase",
+      "properties": {
+        "reportFile": {"const": "TEST-dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT.xml"},
+        "testClass": {"const": "dev.webstarter.mcp.acceptance.McpSdkProjectListRuntimeIT"},
+        "testMethod": {"const": "projectListWorksWhileProjectCreateIsDenied"},
+        "tests": {"const": 1},
+        "failures": {"const": 0},
+        "errors": {"const": 0},
+        "skipped": {"const": 0},
+        "retries": {"const": 0}
+      }
+    },
+    "surefireBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reportFile", "testClass", "testMethod", "tests", "failures", "errors", "skipped", "retries"],
+      "properties": {
+        "reportFile": {"type": "string"},
+        "testClass": {"type": "string"},
+        "testMethod": {"type": "string"},
+        "tests": {"type": "integer"},
+        "failures": {"type": "integer"},
+        "errors": {"type": "integer"},
+        "skipped": {"type": "integer"},
+        "retries": {"type": "integer"}
+      }
+    }
+  }
+}

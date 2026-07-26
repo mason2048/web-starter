@@ -1,0 +1,241 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "启程 Web Starter Private Management API",
+    "version": "2.0.0"
+  },
+  "servers": [{ "url": "/api", "description": "Private management ingress only" }],
+  "security": [{ "webSession": [] }],
+  "x-web-starter-type-imports": {
+    "@/types/api": ["PageData", "PageQuery"],
+    "@/types/models": ["Project", "ProjectOwner", "ProjectPayload", "ProjectUpdatePayload"]
+  },
+  "paths": {
+    "/projects": {
+      "get": {
+        "operationId": "project.list",
+        "summary": "List projects",
+        "x-web-starter-request-type": "PageQuery",
+        "x-web-starter-response-type": "PageData<Project>",
+        "responses": {
+          "200": {
+            "description": "Paged projects",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectPageEnvelope" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "operationId": "project.create",
+        "summary": "Create a project",
+        "x-web-starter-request-type": "ProjectPayload",
+        "x-web-starter-response-type": "Project",
+        "x-web-starter-csrf": true,
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectCreate" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Created project",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectEnvelope" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/projects/owners": {
+      "get": {
+        "operationId": "project.owners",
+        "summary": "List allowed project owners",
+        "x-web-starter-request-type": "void",
+        "x-web-starter-response-type": "ProjectOwner[]",
+        "responses": {
+          "200": {
+            "description": "Project owner choices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Envelope" },
+                    { "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ProjectOwner" } } } }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+      ],
+      "get": {
+        "operationId": "project.get",
+        "summary": "Get a project",
+        "x-web-starter-request-type": "string",
+        "x-web-starter-response-type": "Project",
+        "responses": {
+          "200": {
+            "description": "Project detail",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectEnvelope" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "operationId": "project.update",
+        "summary": "Update a project",
+        "x-web-starter-request-type": "{ id: string; payload: ProjectUpdatePayload }",
+        "x-web-starter-response-type": "Project",
+        "x-web-starter-csrf": true,
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectUpdate" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated project",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectEnvelope" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      },
+      "delete": {
+        "operationId": "project.remove",
+        "summary": "Delete a project",
+        "x-web-starter-request-type": "{ id: string; version: number }",
+        "x-web-starter-response-type": "void",
+        "x-web-starter-csrf": true,
+        "parameters": [
+          { "name": "version", "in": "query", "required": true, "schema": { "type": "integer", "minimum": 0 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "webSession": { "type": "apiKey", "in": "cookie", "name": "WEB_STARTER_SESSION" }
+    },
+    "schemas": {
+      "Envelope": {
+        "type": "object",
+        "required": ["code", "message", "traceId"],
+        "properties": {
+          "code": { "type": "integer" },
+          "message": { "type": "string" },
+          "data": {},
+          "traceId": { "type": "string" }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": ["id", "name", "code", "status", "version"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string", "maxLength": 120 },
+          "code": { "type": "string", "maxLength": 64 },
+          "ownerId": { "type": "string" },
+          "ownerName": { "type": "string" },
+          "status": { "type": "string", "enum": ["PLANNING", "IN_PROGRESS", "ARCHIVED"] },
+          "description": { "type": "string", "maxLength": 2000 },
+          "version": { "type": "integer", "minimum": 0 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProjectCreate": {
+        "type": "object",
+        "required": ["name", "code", "ownerId", "status"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "code": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Za-z][A-Za-z0-9_-]{1,63}$" },
+          "ownerId": { "type": "string" },
+          "status": { "type": "string", "enum": ["PLANNING", "IN_PROGRESS", "ARCHIVED"] },
+          "description": { "type": "string", "maxLength": 2000 }
+        }
+      },
+      "ProjectUpdate": {
+        "type": "object",
+        "required": ["name", "ownerId", "status", "version"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "ownerId": { "type": "string" },
+          "status": { "type": "string", "enum": ["PLANNING", "IN_PROGRESS", "ARCHIVED"] },
+          "description": { "type": "string", "maxLength": 2000 },
+          "version": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ProjectOwner": {
+        "type": "object",
+        "required": ["id", "username", "displayName"],
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "displayName": { "type": "string" }
+        }
+      },
+      "ProjectEnvelope": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Envelope" },
+          { "properties": { "data": { "$ref": "#/components/schemas/Project" } } }
+        ]
+      },
+      "ProjectPageEnvelope": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Envelope" },
+          {
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": ["records", "total", "page", "size"],
+                "properties": {
+                  "records": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } },
+                  "total": { "type": "integer", "minimum": 0 },
+                  "page": { "type": "integer", "minimum": 1 },
+                  "size": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "BadRequest": { "description": "Validation failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "Unauthorized": { "description": "Authentication required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "Forbidden": { "description": "Permission denied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "NotFound": { "description": "Resource not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "Conflict": { "description": "Optimistic-lock conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "TooManyRequests": { "description": "Rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
+      "InternalError": { "description": "Server failure", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } }
+    }
+  }
+}

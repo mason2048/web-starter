@@ -13,12 +13,14 @@ import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 
 import dev.webstarter.mcp.service.McpContentCatalog;
+import dev.webstarter.mcp.service.McpRuntimeIdentity;
 import dev.webstarter.mcp.service.McpToolCatalog;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(WebStarterMcpProperties.class)
+@EnableConfigurationProperties({WebStarterMcpProperties.class, McpIdempotencyProperties.class})
 public class WebStarterMcpConfiguration {
 
     public static final String MCP_ENDPOINT = "/mcp";
@@ -26,6 +28,13 @@ public class WebStarterMcpConfiguration {
     @Bean
     McpJsonMapper mcpJsonMapper() {
         return McpJsonDefaults.getMapper();
+    }
+
+    @Bean
+    McpRuntimeIdentity mcpRuntimeIdentity(
+            @Value("${spring.application.version}") String applicationVersion,
+            @Value("${web-starter.runtime.git-commit:local}") String gitRevision) {
+        return new McpRuntimeIdentity(applicationVersion, gitRevision);
     }
 
     @Bean
@@ -62,9 +71,10 @@ public class WebStarterMcpConfiguration {
             HttpServletStreamableServerTransportProvider provider,
             McpJsonMapper jsonMapper,
             McpToolCatalog toolCatalog,
-            McpContentCatalog contentCatalog) {
+            McpContentCatalog contentCatalog,
+            McpRuntimeIdentity runtimeIdentity) {
         return McpServer.sync(provider)
-                .serverInfo("web-starter-mcp", "1.0.0")
+                .serverInfo(runtimeIdentity.serverInfo())
                 .instructions("Internal management server. All operations enforce live RBAC and token scopes.")
                 .jsonMapper(jsonMapper)
                 .capabilities(ServerCapabilities.builder()

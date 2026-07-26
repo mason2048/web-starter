@@ -11,7 +11,22 @@ import org.junit.jupiter.api.Test;
 
 import io.modelcontextprotocol.server.transport.ServerTransportSecurityException;
 
+import dev.webstarter.mcp.service.McpRuntimeIdentity;
+
 class WebStarterMcpConfigurationTest {
+
+    @Test
+    void bindsRuntimeIdentityFromApplicationVersionAndGitRevision() {
+        WebStarterMcpConfiguration configuration = new WebStarterMcpConfiguration();
+        String commit = "0123456789abcdef0123456789abcdef01234567";
+
+        McpRuntimeIdentity identity = configuration.mcpRuntimeIdentity("2.0.0", commit);
+
+        assertThat(identity.applicationVersion()).isEqualTo("2.0.0");
+        assertThat(identity.gitRevision()).isEqualTo(commit);
+        assertThat(identity.serverInfo().version()).isEqualTo("2.0.0");
+        assertThat(identity.serverInfo().description()).isEqualTo("gitRevision=" + commit);
+    }
 
     @Test
     void streamableHttpServletIsMountedOnlyAtMcpEndpoint() {

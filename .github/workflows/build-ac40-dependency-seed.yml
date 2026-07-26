@@ -1,0 +1,821 @@
+name: build-ac40-dependency-seed
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing annotated semantic Git tag at the selected commit, for example v2.0.0-rc.1
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: build-ac40-dependency-seed-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build-dependency-seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    environment:
+      name: release
+    steps:
+      # Keep this as the first step. The job-level Environment approval must be
+      # followed by an explicit fail-closed check before checkout or any
+      # Environment Secret could be referenced by a later step.
+      - name: Verify protected release Environment before checkout
+        id: release_environment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" != "Linux" || "${RUNNER_ARCH}" != "X64" ]]; then
+            echo "AC40 dependency seed production requires Linux/X64" >&2
+            exit 1
+          fi
+
+          trust_root="${RUNNER_TEMP}/web-starter-ac40-seed-trust-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ -e "${trust_root}" || -L "${trust_root}" ]]; then
+            echo "AC40 trust root already exists" >&2
+            exit 1
+          fi
+          umask 077
+          mkdir -m 700 "${trust_root}"
+
+          api_get() {
+            local target="$1"
+            local url="$2"
+            curl --fail --silent --show-error \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              --output "${target}" \
+              "${url}"
+            chmod 600 "${target}"
+          }
+
+          environment_metadata="${trust_root}/environment.json"
+          api_get "${environment_metadata}" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/environments/release"
+          if ! jq -e '
+                .name == "release"
+                and (.protection_rules | type == "array")
+                and any(
+                  .protection_rules[];
+                  .type == "required_reviewers"
+                  and (.reviewers | type == "array")
+                  and (.reviewers | length > 0)
+                )
+              ' "${environment_metadata}" >/dev/null; then
+            echo "release Environment must have at least one required reviewer" >&2
+            exit 1
+          fi
+
+          rm -f "${environment_metadata}"
+          echo "trust_root=${trust_root}" >> "${GITHUB_OUTPUT}"
+
+      - name: Check out the requested immutable candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.version }}
+          fetch-depth: 0
+          clean: true
+          persist-credentials: false
+
+      - name: Require annotated semantic tag, exact HEAD and clean checkout
+        id: candidate
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          release_tag="${DISPATCH_VERSION}"
+          if [[ ! "${release_tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "AC40 seed production requires a v-prefixed semantic tag" >&2
+            exit 1
+          fi
+          if [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "GitHub candidate SHA is malformed" >&2
+            exit 1
+          fi
+
+          tag_ref="refs/tags/${release_tag}"
+          if [[ "$(git cat-file -t "${tag_ref}" 2>/dev/null || true)" != "tag" ]]; then
+            echo "AC40 seed production requires an existing annotated Git tag" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "${tag_ref}^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [[ "${tag_commit}" != "${GITHUB_SHA}" || "${head_commit}" != "${GITHUB_SHA}" ]]; then
+            echo "annotated tag commit, checked-out HEAD and GITHUB_SHA must be identical" >&2
+            exit 1
+          fi
+          if [[ -n "$(git status --porcelain=v1)" ]]; then
+            echo "AC40 dependency seed checkout is not clean" >&2
+            git status --short >&2
+            exit 1
+          fi
+          echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+          echo "head_sha=${head_commit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up frozen Java 21 toolchain without a dependency cache
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up frozen Node.js 24 toolchain without a dependency cache
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Create new private dependency roots and central-only Maven policy
+        id: roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          private_root="${RUNNER_TEMP}/web-starter-ac40-seed-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ -e "${private_root}" || -L "${private_root}" ]]; then
+            echo "AC40 private build root already exists" >&2
+            exit 1
+          fi
+          mkdir -m 700 "${private_root}"
+
+          maven_wrapper_cache="${private_root}/maven-wrapper-home"
+          maven_repository="${private_root}/maven-repository"
+          corepack_home="${private_root}/corepack-home"
+          pnpm_store_root="${private_root}/pnpm-store"
+          pnpm_virtual_store="${private_root}/pnpm-virtual-store"
+          playwright_browsers="${private_root}/playwright-browsers"
+          npm_cache="${private_root}/npm-cache"
+          xdg_cache="${private_root}/xdg-cache"
+          config_root="${private_root}/config"
+          output_root="${private_root}/output"
+          seed_parent="${private_root}/seed-output"
+          extract_parent="${private_root}/extract-output"
+          for path in \
+            "${maven_wrapper_cache}" "${maven_repository}" \
+            "${corepack_home}" "${pnpm_store_root}" "${pnpm_virtual_store}" \
+            "${playwright_browsers}" "${npm_cache}" "${xdg_cache}" \
+            "${config_root}" "${output_root}" "${seed_parent}" "${extract_parent}"; do
+            mkdir -m 700 "${path}"
+          done
+
+          python3 -B - \
+            "${private_root}" "${maven_wrapper_cache}" \
+            "${maven_repository}" "${corepack_home}" "${pnpm_store_root}" \
+            "${pnpm_virtual_store}" "${playwright_browsers}" "${npm_cache}" \
+            "${xdg_cache}" "${config_root}" "${output_root}" \
+            "${seed_parent}" "${extract_parent}" <<'PY'
+          import os
+          from pathlib import Path
+          import stat
+          import sys
+
+          roots = [Path(value).absolute() for value in sys.argv[1:]]
+          for root in roots:
+              metadata = root.lstat()
+              if root.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+                  raise SystemExit("AC40 dependency root is not a real directory")
+              if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+                  raise SystemExit("AC40 dependency root is not caller-owned mode 0700")
+              if root != roots[0] and any(root.iterdir()):
+                  raise SystemExit("AC40 dependency cache root was not created empty")
+          PY
+
+          maven_settings="${config_root}/maven-central-settings.xml"
+          cat > "${maven_settings}" <<'XML'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+            <mirrors>
+              <mirror>
+                <id>central</id>
+                <name>HTTPS Maven Central only</name>
+                <url>https://repo.maven.apache.org/maven2</url>
+                <mirrorOf>*</mirrorOf>
+              </mirror>
+            </mirrors>
+            <profiles>
+              <profile>
+                <id>central-checksum-policy</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <repositories>
+                  <repository>
+                    <id>central</id>
+                    <url>https://repo.maven.apache.org/maven2</url>
+                    <releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
+                    <snapshots><enabled>false</enabled><checksumPolicy>fail</checksumPolicy></snapshots>
+                  </repository>
+                </repositories>
+                <pluginRepositories>
+                  <pluginRepository>
+                    <id>central</id>
+                    <url>https://repo.maven.apache.org/maven2</url>
+                    <releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
+                    <snapshots><enabled>false</enabled><checksumPolicy>fail</checksumPolicy></snapshots>
+                  </pluginRepository>
+                </pluginRepositories>
+              </profile>
+            </profiles>
+          </settings>
+          XML
+          npm_user_config="${config_root}/npm-user-config"
+          npm_global_config="${config_root}/npm-global-config"
+          : > "${npm_user_config}"
+          : > "${npm_global_config}"
+          chmod 600 "${maven_settings}" "${npm_user_config}" "${npm_global_config}"
+
+          {
+            echo "private_root=${private_root}"
+            echo "maven_wrapper_cache=${maven_wrapper_cache}"
+            echo "maven_repository=${maven_repository}"
+            echo "maven_settings=${maven_settings}"
+            echo "corepack_home=${corepack_home}"
+            echo "pnpm_store_root=${pnpm_store_root}"
+            echo "pnpm_virtual_store=${pnpm_virtual_store}"
+            echo "playwright_browsers=${playwright_browsers}"
+            echo "npm_cache=${npm_cache}"
+            echo "xdg_cache=${xdg_cache}"
+            echo "npm_user_config=${npm_user_config}"
+            echo "npm_global_config=${npm_global_config}"
+            echo "output_root=${output_root}"
+            echo "seed_parent=${seed_parent}"
+            echo "extract_parent=${extract_parent}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Resolve exact AC40 Maven closure from checksum-verified Maven Central
+        shell: bash
+        env:
+          MAVEN_USER_HOME: ${{ steps.roots.outputs.maven_wrapper_cache }}
+          MAVEN_REPOSITORY: ${{ steps.roots.outputs.maven_repository }}
+          MAVEN_SETTINGS: ${{ steps.roots.outputs.maven_settings }}
+          XDG_CACHE_HOME: ${{ steps.roots.outputs.xdg_cache }}
+        run: |
+          set -euo pipefail
+          if [[ -e "${MAVEN_USER_HOME}/repository" || -L "${MAVEN_USER_HOME}/repository" ]]; then
+            echo "Maven Wrapper home is not isolated from the local repository" >&2
+            exit 1
+          fi
+          ./mvnw --batch-mode --no-transfer-progress \
+            --settings "${MAVEN_SETTINGS}" \
+            "-Dmaven.repo.local=${MAVEN_REPOSITORY}" \
+            -DskipTests -DskipITs -pl web-starter-mcp -am clean install
+          ./mvnw --batch-mode --no-transfer-progress \
+            --settings "${MAVEN_SETTINGS}" \
+            "-Dmaven.repo.local=${MAVEN_REPOSITORY}" \
+            -pl web-starter-mcp \
+            -Dtest=dev.webstarter.mcp.acceptance.McpRuntimeToolExpectationsTest \
+            -Dsurefire.failIfNoSpecifiedTests=true \
+            -Dsurefire.rerunFailingTestsCount=0 \
+            -DfailIfNoTests=true \
+            test
+
+          python3 -B - "${MAVEN_REPOSITORY}" <<'PY'
+          from pathlib import Path
+          import shutil
+          import sys
+
+          repository = Path(sys.argv[1]).resolve(strict=True)
+          project_artifacts = repository / "dev" / "webstarter"
+          if project_artifacts.is_symlink():
+              raise SystemExit("local project Maven artifacts may not be transported")
+          if project_artifacts.exists():
+              if not project_artifacts.is_dir():
+                  raise SystemExit("local project Maven artifact root is invalid")
+              if project_artifacts.resolve(strict=True).parent.parent != repository:
+                  raise SystemExit("local project Maven artifact root escaped its private repository")
+              shutil.rmtree(project_artifacts)
+          if project_artifacts.exists() or project_artifacts.is_symlink():
+              raise SystemExit("local dev/webstarter Maven artifacts remain in the dependency cache")
+          PY
+          if [[ -e "${MAVEN_REPOSITORY}/dev/webstarter" || -L "${MAVEN_REPOSITORY}/dev/webstarter" ]]; then
+            echo "local dev/webstarter Maven artifacts remain after sanitization" >&2
+            exit 1
+          fi
+
+      - name: Resolve exact pnpm lockfile and Playwright Chromium into new private roots
+        shell: bash
+        working-directory: web-starter-web
+        env:
+          COREPACK_HOME: ${{ steps.roots.outputs.corepack_home }}
+          COREPACK_NPM_REGISTRY: https://registry.npmjs.org
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+          NPM_CONFIG_USERCONFIG: ${{ steps.roots.outputs.npm_user_config }}
+          NPM_CONFIG_GLOBALCONFIG: ${{ steps.roots.outputs.npm_global_config }}
+          NPM_CONFIG_CACHE: ${{ steps.roots.outputs.npm_cache }}
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+          npm_config_userconfig: ${{ steps.roots.outputs.npm_user_config }}
+          npm_config_globalconfig: ${{ steps.roots.outputs.npm_global_config }}
+          npm_config_cache: ${{ steps.roots.outputs.npm_cache }}
+          npm_config_registry: https://registry.npmjs.org/
+          PNPM_STORE_ROOT: ${{ steps.roots.outputs.pnpm_store_root }}
+          PNPM_VIRTUAL_STORE: ${{ steps.roots.outputs.pnpm_virtual_store }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.roots.outputs.playwright_browsers }}
+          XDG_CACHE_HOME: ${{ steps.roots.outputs.xdg_cache }}
+        run: |
+          set -euo pipefail
+          if find .. -name .npmrc -print -quit | grep -q .; then
+            echo "candidate-local npm configuration is not allowed for formal AC40 seed production" >&2
+            exit 1
+          fi
+          unset PLAYWRIGHT_DOWNLOAD_HOST PLAYWRIGHT_CHROMIUM_DOWNLOAD_HOST NODE_OPTIONS
+          corepack prepare pnpm@9.15.9 --activate
+          if [[ "$(corepack pnpm@9.15.9 --version)" != "9.15.9" ]]; then
+            echo "Corepack did not materialize exact pnpm 9.15.9" >&2
+            exit 1
+          fi
+          python3 -B - "${COREPACK_HOME}/v1/pnpm/9.15.9/package.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          package = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if package.get("name") != "pnpm" or package.get("version") != "9.15.9":
+              raise SystemExit("Corepack pnpm package identity is not exact")
+          PY
+
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 corepack pnpm@9.15.9 install \
+            --frozen-lockfile \
+            --ignore-scripts \
+            --package-import-method=copy \
+            --store-dir "${PNPM_STORE_ROOT}" \
+            --virtual-store-dir "${PNPM_VIRTUAL_STORE}" \
+            --registry=https://registry.npmjs.org/
+          if [[ ! -d "${PNPM_STORE_ROOT}/v3/files" \
+                || -z "$(find "${PNPM_STORE_ROOT}/v3/files" -mindepth 1 -print -quit)" ]]; then
+            echo "pnpm 9 did not create a non-empty private v3/files store" >&2
+            exit 1
+          fi
+          if [[ "$(node -p "require('./node_modules/@playwright/test/package.json').version")" != "1.61.1" ]]; then
+            echo "frozen lockfile did not install Playwright 1.61.1" >&2
+            exit 1
+          fi
+          chromium_revision="$(node <<'JS'
+          const fs = require('node:fs')
+          const path = require('node:path')
+
+          const nodeModulesRoot = fs.realpathSync(path.join(process.cwd(), 'node_modules'))
+          const insideNodeModules = (candidate, label) => {
+            const resolved = fs.realpathSync(candidate)
+            if (resolved !== nodeModulesRoot && !resolved.startsWith(`${nodeModulesRoot}${path.sep}`)) {
+              throw new Error(`${label} resolved outside the private node_modules tree`)
+            }
+            return resolved
+          }
+          const readPackage = (candidate, expectedName) => {
+            const packagePath = insideNodeModules(candidate, `${expectedName} package`)
+            const document = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+            if (document.name !== expectedName || document.version !== '1.61.1') {
+              throw new Error(`${expectedName} package identity is not exact`)
+            }
+            return packagePath
+          }
+
+          const testPackage = readPackage(
+            require.resolve('@playwright/test/package.json', { paths: [process.cwd()] }),
+            '@playwright/test',
+          )
+          const playwrightPackage = readPackage(
+            require.resolve('playwright/package.json', { paths: [path.dirname(testPackage)] }),
+            'playwright',
+          )
+          const corePackage = readPackage(
+            require.resolve('playwright-core/package.json', {
+              paths: [path.dirname(playwrightPackage)],
+            }),
+            'playwright-core',
+          )
+          const browsersPath = insideNodeModules(
+            path.join(path.dirname(corePackage), 'browsers.json'),
+            'playwright-core browsers.json',
+          )
+          const browsers = JSON.parse(fs.readFileSync(browsersPath, 'utf8'))
+          const chromium = Array.isArray(browsers.browsers)
+            ? browsers.browsers.find((browser) => browser.name === 'chromium')
+            : undefined
+          if (!chromium || typeof chromium.revision !== 'string') {
+            throw new Error('playwright-core Chromium revision is unavailable')
+          }
+          process.stdout.write(chromium.revision)
+          JS
+          )"
+          if [[ "${chromium_revision}" != "1228" ]]; then
+            echo "Playwright Chromium revision is not frozen at 1228" >&2
+            exit 1
+          fi
+
+          corepack pnpm@9.15.9 exec playwright install chromium
+          chromium_root="${PLAYWRIGHT_BROWSERS_PATH}/chromium-1228"
+          if [[ ! -f "${chromium_root}/INSTALLATION_COMPLETE" ]]; then
+            echo "Playwright Chromium 1228 installation marker is missing" >&2
+            exit 1
+          fi
+          if find "${PLAYWRIGHT_BROWSERS_PATH}" -mindepth 1 -maxdepth 1 \
+              -type d -name 'chromium-*' ! -name 'chromium-1228' -print -quit | grep -q .; then
+            echo "unexpected Chromium revision exists in the private browser root" >&2
+            exit 1
+          fi
+          if ! find "${chromium_root}" -type f -name chrome -perm -u+x -print -quit | grep -q .; then
+            echo "Playwright Chromium 1228 executable is missing" >&2
+            exit 1
+          fi
+
+          node <<'JS'
+          const path = require('node:path')
+          const { chromium } = require('@playwright/test')
+
+          ;(async () => {
+            const executable = chromium.executablePath()
+            const expectedSegment = `${path.sep}chromium-1228${path.sep}`
+            if (!executable.includes(expectedSegment)) {
+              throw new Error('Playwright did not resolve the frozen Chromium 1228 executable')
+            }
+            const browser = await chromium.launch({ headless: true })
+            try {
+              const page = await browser.newPage()
+              await page.setContent('<main>AC40 browser launch smoke</main>')
+              if ((await page.locator('main').textContent()) !== 'AC40 browser launch smoke') {
+                throw new Error('Chromium launch smoke did not execute a page operation')
+              }
+            } finally {
+              await browser.close()
+            }
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : String(error))
+            process.exit(1)
+          })
+          JS
+
+      - name: Run repository secret and protected forbidden-vocabulary policy
+        shell: bash
+        env:
+          FORBIDDEN_TERMS_SECRET: ${{ secrets.WEB_STARTER_FORBIDDEN_TERMS }}
+          TRUST_ROOT: ${{ steps.release_environment.outputs.trust_root }}
+        run: |
+          set -euo pipefail
+          forbidden_terms_file="${TRUST_ROOT}/forbidden-terms.txt"
+          python3 -B - "${TRUST_ROOT}" "${forbidden_terms_file}" <<'PY'
+          from pathlib import Path
+          import os
+          import stat
+          import sys
+
+          trust_root = Path(sys.argv[1]).resolve(strict=True)
+          target = Path(sys.argv[2]).absolute()
+          terms_text = os.environ.get("FORBIDDEN_TERMS_SECRET", "")
+          if not terms_text or not terms_text.strip():
+              raise SystemExit("WEB_STARTER_FORBIDDEN_TERMS must contain at least one term")
+          if any((ord(character) < 32 and character != "\n") or ord(character) == 127
+                 for character in terms_text):
+              raise SystemExit("WEB_STARTER_FORBIDDEN_TERMS contains a forbidden control character")
+          parsed_terms = [
+              line.strip() for line in terms_text.splitlines()
+              if line.strip() and not line.strip().startswith("#")
+          ]
+          payload = terms_text.encode("utf-8")
+          if not parsed_terms or len(payload) > 64 * 1024:
+              raise SystemExit("WEB_STARTER_FORBIDDEN_TERMS is empty or exceeds the validator bound")
+          if target.parent.resolve(strict=True) != trust_root:
+              raise SystemExit("forbidden-term destination escaped its protected private root")
+          descriptor = os.open(
+              target,
+              os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+              0o600,
+          )
+          try:
+              with os.fdopen(descriptor, "wb") as stream:
+                  stream.write(payload)
+                  stream.flush()
+                  os.fsync(stream.fileno())
+          except BaseException:
+              target.unlink(missing_ok=True)
+              raise
+          metadata = target.lstat()
+          if target.is_symlink() or not stat.S_ISREG(metadata.st_mode) \
+                  or stat.S_IMODE(metadata.st_mode) != 0o600 \
+                  or metadata.st_uid != os.getuid() or metadata.st_nlink != 1:
+              target.unlink(missing_ok=True)
+              raise SystemExit("forbidden-term file is not a private regular file")
+          PY
+          python3 -B -m unittest scripts.test_repository_policy
+          python3 -B scripts/repository_policy.py secrets
+          python3 -B scripts/repository_policy.py forbidden \
+            --forbidden-terms-file "${forbidden_terms_file}"
+
+      - name: Build source-bound deterministic AC40 dependency seed
+        id: seed
+        shell: bash
+        env:
+          MAVEN_WRAPPER_CACHE: ${{ steps.roots.outputs.maven_wrapper_cache }}
+          MAVEN_REPOSITORY: ${{ steps.roots.outputs.maven_repository }}
+          COREPACK_HOME: ${{ steps.roots.outputs.corepack_home }}
+          PNPM_STORE_ROOT: ${{ steps.roots.outputs.pnpm_store_root }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ steps.roots.outputs.playwright_browsers }}
+          OUTPUT_ROOT: ${{ steps.roots.outputs.output_root }}
+          SEED_PARENT: ${{ steps.roots.outputs.seed_parent }}
+        run: |
+          set -euo pipefail
+          archive="${OUTPUT_ROOT}/web-starter-ac40-dependency-seed-linux-x86_64.tar"
+          receipt="${OUTPUT_ROOT}/dependency-seed-receipt.json"
+          stdout_receipt="${OUTPUT_ROOT}/dependency-seed-build-stdout.json"
+          seed_root="${SEED_PARENT}/dependency-seed"
+          for output in "${archive}" "${receipt}" "${stdout_receipt}" "${seed_root}"; do
+            if [[ -e "${output}" || -L "${output}" ]]; then
+              echo "AC40 dependency seed output already exists: ${output}" >&2
+              exit 1
+            fi
+          done
+
+          python3 -B scripts/build_v1_upgrade_dependency_seed.py build \
+            --repository-root "${GITHUB_WORKSPACE}" \
+            --maven-home "${MAVEN_WRAPPER_CACHE}" \
+            --maven-repository "${MAVEN_REPOSITORY}" \
+            --corepack-home "${COREPACK_HOME}" \
+            --pnpm-store-root "${PNPM_STORE_ROOT}" \
+            --playwright-browsers "${PLAYWRIGHT_BROWSERS_PATH}" \
+            --seed-output "${seed_root}" \
+            --archive-output "${archive}" \
+            --receipt-output "${receipt}" > "${stdout_receipt}"
+          chmod 600 "${stdout_receipt}"
+          cmp --silent "${receipt}" "${stdout_receipt}"
+
+          python3 -B - "${archive}" "${receipt}" <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import stat
+          import sys
+
+          archive = Path(sys.argv[1]).absolute()
+          receipt_path = Path(sys.argv[2]).absolute()
+          if archive.name != "web-starter-ac40-dependency-seed-linux-x86_64.tar":
+              raise SystemExit("AC40 archive basename is not exact")
+          for path in (archive, receipt_path):
+              metadata = path.lstat()
+              if path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+                  raise SystemExit("AC40 seed output is not a regular file")
+              if metadata.st_uid != os.getuid() or metadata.st_nlink != 1:
+                  raise SystemExit("AC40 seed output is not caller-owned and private")
+              if stat.S_IMODE(metadata.st_mode) != 0o600:
+                  raise SystemExit("AC40 seed output mode is not 0600")
+          receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+          digest = hashlib.sha256()
+          with archive.open("rb") as stream:
+              for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                  digest.update(chunk)
+          archive_sha256 = digest.hexdigest()
+          if receipt.get("archiveSha256") != archive_sha256:
+              raise SystemExit("AC40 receipt does not bind the raw archive")
+          if receipt.get("platform") != "linux" or receipt.get("architecture") != "x86_64":
+              raise SystemExit("AC40 receipt platform identity is not Linux/x86_64")
+          for field in ("archiveSha256", "aggregateSha256", "manifestSha256"):
+              value = receipt.get(field)
+              if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+                  raise SystemExit(f"AC40 receipt {field} is malformed")
+          PY
+
+          archive_sha256="$(jq -er '.archiveSha256' "${receipt}")"
+          aggregate_sha256="$(jq -er '.aggregateSha256' "${receipt}")"
+          manifest_sha256="$(jq -er '.manifestSha256' "${receipt}")"
+          platform="$(jq -er '.platform' "${receipt}")"
+          architecture="$(jq -er '.architecture' "${receipt}")"
+          {
+            echo "archive=${archive}"
+            echo "receipt=${receipt}"
+            echo "archive_sha256=${archive_sha256}"
+            echo "aggregate_sha256=${aggregate_sha256}"
+            echo "manifest_sha256=${manifest_sha256}"
+            echo "platform=${platform}"
+            echo "architecture=${architecture}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Extract and independently revalidate the raw seed archive
+        shell: bash
+        env:
+          ARCHIVE: ${{ steps.seed.outputs.archive }}
+          ARCHIVE_SHA256: ${{ steps.seed.outputs.archive_sha256 }}
+          AGGREGATE_SHA256: ${{ steps.seed.outputs.aggregate_sha256 }}
+          BUILD_RECEIPT: ${{ steps.seed.outputs.receipt }}
+          EXTRACT_PARENT: ${{ steps.roots.outputs.extract_parent }}
+        run: |
+          set -euo pipefail
+          extracted_seed="${EXTRACT_PARENT}/dependency-seed"
+          extract_receipt="${EXTRACT_PARENT}/dependency-seed-extract-receipt.json"
+          extract_stdout_receipt="${EXTRACT_PARENT}/dependency-seed-extract-stdout.json"
+          for output in "${extracted_seed}" "${extract_receipt}" "${extract_stdout_receipt}"; do
+            if [[ -e "${output}" || -L "${output}" ]]; then
+              echo "AC40 extract verification output already exists" >&2
+              exit 1
+            fi
+          done
+          python3 -B scripts/build_v1_upgrade_dependency_seed.py extract-verify \
+            --repository-root "${GITHUB_WORKSPACE}" \
+            --archive "${ARCHIVE}" \
+            --expected-archive-sha256 "${ARCHIVE_SHA256}" \
+            --expected-aggregate-sha256 "${AGGREGATE_SHA256}" \
+            --seed-output "${extracted_seed}" \
+            --receipt-output "${extract_receipt}" > "${extract_stdout_receipt}"
+          chmod 600 "${extract_stdout_receipt}"
+          cmp --silent "${BUILD_RECEIPT}" "${extract_receipt}"
+          cmp --silent "${BUILD_RECEIPT}" "${extract_stdout_receipt}"
+
+      - name: Require source tree to remain candidate-exact before upload
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ steps.candidate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" != "${EXPECTED_HEAD_SHA}" ]]; then
+            echo "candidate HEAD changed during dependency seed production" >&2
+            exit 1
+          fi
+          if [[ -n "$(git status --porcelain=v1 --untracked-files=no)" ]]; then
+            echo "tracked candidate files changed during dependency seed production" >&2
+            git status --short --untracked-files=no >&2
+            exit 1
+          fi
+
+      - name: Upload immutable raw AC40 dependency seed tar
+        id: upload_seed
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.seed.outputs.archive }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Verify uploaded artifact digest and write canonical provenance
+        id: artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPLOAD_ARTIFACT_ID: ${{ steps.upload_seed.outputs.artifact-id }}
+          UPLOAD_ARTIFACT_DIGEST: ${{ steps.upload_seed.outputs.artifact-digest }}
+          ARCHIVE_SHA256: ${{ steps.seed.outputs.archive_sha256 }}
+          AGGREGATE_SHA256: ${{ steps.seed.outputs.aggregate_sha256 }}
+          MANIFEST_SHA256: ${{ steps.seed.outputs.manifest_sha256 }}
+          RECEIPT: ${{ steps.seed.outputs.receipt }}
+          RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+          HEAD_SHA: ${{ steps.candidate.outputs.head_sha }}
+          OUTPUT_ROOT: ${{ steps.roots.outputs.output_root }}
+          EXPECTED_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${UPLOAD_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ \
+                || ! "${UPLOAD_ARTIFACT_DIGEST}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "upload-artifact did not return an immutable artifact identity" >&2
+            exit 1
+          fi
+          if [[ "${UPLOAD_ARTIFACT_DIGEST}" != "${ARCHIVE_SHA256}" ]]; then
+            echo "uploaded raw artifact digest differs from the archive SHA-256" >&2
+            exit 1
+          fi
+
+          artifact_metadata="${OUTPUT_ROOT}/uploaded-artifact-metadata.json"
+          curl --fail --silent --show-error \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --output "${artifact_metadata}" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/artifacts/${UPLOAD_ARTIFACT_ID}"
+          chmod 600 "${artifact_metadata}"
+          if ! jq -e \
+                --argjson artifact_id "${UPLOAD_ARTIFACT_ID}" \
+                --argjson run_id "${GITHUB_RUN_ID}" \
+                --argjson repository_id "${EXPECTED_REPOSITORY_ID}" \
+                --arg name "web-starter-ac40-dependency-seed-linux-x86_64.tar" \
+                --arg digest "sha256:${ARCHIVE_SHA256}" '
+              .id == $artifact_id
+              and .name == $name
+              and .digest == $digest
+              and .expired == false
+              and .workflow_run.id == $run_id
+              and .workflow_run.repository_id == $repository_id
+            ' "${artifact_metadata}" >/dev/null; then
+            echo "uploaded raw AC40 artifact REST identity is not exact" >&2
+            exit 1
+          fi
+
+          provenance="${OUTPUT_ROOT}/dependency-seed-provenance.json"
+          if ! jq -e \
+                --arg archive "${ARCHIVE_SHA256}" \
+                --arg aggregate "${AGGREGATE_SHA256}" \
+                --arg manifest "${MANIFEST_SHA256}" '
+              .archiveSha256 == $archive
+              and .aggregateSha256 == $aggregate
+              and .manifestSha256 == $manifest
+            ' "${RECEIPT}" >/dev/null; then
+            echo "AC40 receipt changed before provenance generation" >&2
+            exit 1
+          fi
+          python3 -B - \
+            "${RECEIPT}" "${provenance}" "${UPLOAD_ARTIFACT_ID}" \
+            "${UPLOAD_ARTIFACT_DIGEST}" "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}" \
+            "${EXPECTED_REPOSITORY_ID}" "${GITHUB_REPOSITORY}" "${HEAD_SHA}" "${RELEASE_TAG}" <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import sys
+
+          receipt_path = Path(sys.argv[1]).absolute()
+          provenance_path = Path(sys.argv[2]).absolute()
+          receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+          document = {
+              "schemaVersion": 1,
+              "kind": "web-starter-ac40-dependency-seed-provenance",
+              "artifactId": int(sys.argv[3]),
+              "artifactName": "web-starter-ac40-dependency-seed-linux-x86_64.tar",
+              "artifactDigest": sys.argv[4],
+              "workflowRunId": int(sys.argv[5]),
+              "workflowRunAttempt": int(sys.argv[6]),
+              "workflowPath": ".github/workflows/build-ac40-dependency-seed.yml",
+              "repositoryId": int(sys.argv[7]),
+              "repository": sys.argv[8],
+              "headSha": sys.argv[9],
+              "annotatedTag": sys.argv[10],
+              "receipt": receipt,
+          }
+          payload = (json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n").encode()
+          descriptor = os.open(
+              provenance_path,
+              os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+              0o600,
+          )
+          with os.fdopen(descriptor, "wb") as stream:
+              stream.write(payload)
+              stream.flush()
+              os.fsync(stream.fileno())
+          PY
+          rm -f "${artifact_metadata}"
+          {
+            echo "artifact_id=${UPLOAD_ARTIFACT_ID}"
+            echo "artifact_digest=${UPLOAD_ARTIFACT_DIGEST}"
+            echo "provenance=${provenance}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Upload receipt and provenance review bundle
+        id: upload_provenance
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-starter-ac40-dependency-seed-provenance-${{ github.run_id }}
+          path: |
+            ${{ steps.seed.outputs.receipt }}
+            ${{ steps.artifact.outputs.provenance }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish AC40 dependency seed handoff summary
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+          PROVENANCE_ARTIFACT_ID: ${{ steps.upload_provenance.outputs.artifact-id }}
+          ARCHIVE_SHA256: ${{ steps.seed.outputs.archive_sha256 }}
+          AGGREGATE_SHA256: ${{ steps.seed.outputs.aggregate_sha256 }}
+          MANIFEST_SHA256: ${{ steps.seed.outputs.manifest_sha256 }}
+          PLATFORM: ${{ steps.seed.outputs.platform }}
+          ARCHITECTURE: ${{ steps.seed.outputs.architecture }}
+          HEAD_SHA: ${{ steps.candidate.outputs.head_sha }}
+          RELEASE_TAG: ${{ steps.candidate.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${PROVENANCE_ARTIFACT_ID}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "provenance review artifact ID is invalid" >&2
+            exit 1
+          fi
+          anchor_bundle="$(jq -cnS \
+            --arg aggregateSha256 "${AGGREGATE_SHA256}" \
+            --arg archiveSha256 "${ARCHIVE_SHA256}" \
+            --argjson artifactId "${ARTIFACT_ID}" \
+            --argjson workflowRunId "${GITHUB_RUN_ID}" \
+            '{aggregateSha256:$aggregateSha256,archiveSha256:$archiveSha256,artifactId:$artifactId,workflowRunId:$workflowRunId}')"
+          if [[ ! "${anchor_bundle}" =~ ^\{"aggregateSha256":"[0-9a-f]{64}","archiveSha256":"[0-9a-f]{64}","artifactId":[1-9][0-9]*,"workflowRunId":[1-9][0-9]*\}$ ]]; then
+            echo "canonical release Environment anchor bundle is invalid" >&2
+            exit 1
+          fi
+          {
+            echo "## AC40 dependency seed handoff"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Raw tar artifact ID | ${ARTIFACT_ID} |"
+            echo "| Producer workflow run ID | ${GITHUB_RUN_ID} |"
+            echo "| Receipt/provenance artifact ID | ${PROVENANCE_ARTIFACT_ID} |"
+            echo "| Archive SHA-256 | ${ARCHIVE_SHA256} |"
+            echo "| Aggregate SHA-256 | ${AGGREGATE_SHA256} |"
+            echo "| Manifest SHA-256 | ${MANIFEST_SHA256} |"
+            echo "| Platform | ${PLATFORM} |"
+            echo "| Architecture | ${ARCHITECTURE} |"
+            echo "| Head SHA | ${HEAD_SHA} |"
+            echo "| Annotated tag | ${RELEASE_TAG} |"
+            echo
+            echo "Set the protected Environment Secret \`WEB_STARTER_AC40_DEPENDENCY_SEED_ANCHORS\` to this exact single-line value:"
+            echo
+            echo "\`${anchor_bundle}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

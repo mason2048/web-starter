@@ -2,15 +2,15 @@ package dev.webstarter.mcp.service;
 
 import java.util.Map;
 
-final class McpArguments {
+public final class McpArguments {
 
     private final Map<String, Object> values;
 
-    McpArguments(Map<String, Object> values) {
+    public McpArguments(Map<String, Object> values) {
         this.values = values == null ? Map.of() : values;
     }
 
-    String requiredString(String name) {
+    public String requiredString(String name) {
         String value = optionalString(name);
         if (value == null) {
             throw new IllegalArgumentException(name + " is required");
@@ -18,7 +18,7 @@ final class McpArguments {
         return value;
     }
 
-    String optionalString(String name) {
+    public String optionalString(String name) {
         Object raw = values.get(name);
         if (raw == null) {
             return null;
@@ -30,12 +30,12 @@ final class McpArguments {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    long longValue(String name, long defaultValue) {
+    public long longValue(String name, long defaultValue) {
         Long value = optionalLong(name);
         return value == null ? defaultValue : value;
     }
 
-    long requiredLong(String name) {
+    public long requiredLong(String name) {
         Long value = optionalLong(name);
         if (value == null) {
             throw new IllegalArgumentException(name + " is required");
@@ -43,7 +43,7 @@ final class McpArguments {
         return value;
     }
 
-    Long optionalLong(String name) {
+    public Long optionalLong(String name) {
         Object raw = values.get(name);
         if (raw == null) {
             return null;
@@ -59,7 +59,7 @@ final class McpArguments {
         return integer;
     }
 
-    long requiredId(String name) {
+    public long requiredId(String name) {
         Long value = optionalId(name);
         if (value == null) {
             throw new IllegalArgumentException(name + " is required");
@@ -67,11 +67,11 @@ final class McpArguments {
         return value;
     }
 
-    Long optionalId(String name) {
+    public Long optionalId(String name) {
         return McpIdentifierContract.optionalId(values.get(name), name);
     }
 
-    int requiredInteger(String name) {
+    public int requiredInteger(String name) {
         long value = requiredLong(name);
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
             throw new IllegalArgumentException(name + " is outside the integer range");

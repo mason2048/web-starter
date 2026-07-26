@@ -14,6 +14,8 @@ public record McpCallAuditEvent(
         Long durationMs,
         String ipAddress,
         String errorCode,
+        String idempotencyKeyHash,
+        Boolean replayed,
         String traceId,
         LocalDateTime occurredAt
 ) {

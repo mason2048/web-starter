@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+TOOL_JAR="$REPO_ROOT/web-starter-tooling/target/web-starter-tooling.jar"
+
+NEEDS_BUILD=0
+if [ ! -f "$TOOL_JAR" ]; then
+  NEEDS_BUILD=1
+elif [ "$REPO_ROOT/pom.xml" -nt "$TOOL_JAR" ] || [ "$REPO_ROOT/web-starter-tooling/pom.xml" -nt "$TOOL_JAR" ]; then
+  NEEDS_BUILD=1
+elif find "$REPO_ROOT/web-starter-tooling/src" -type f -newer "$TOOL_JAR" -print -quit | grep -q .; then
+  NEEDS_BUILD=1
+fi
+
+if [ "$NEEDS_BUILD" -eq 1 ]; then
+  "$REPO_ROOT/mvnw" -B -ntp -pl web-starter-tooling -am package -DskipTests
+fi
+
+exec java -jar "$TOOL_JAR" "$@"

@@ -11,6 +11,11 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.security.SecureRandom;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,12 +32,15 @@ class OAuthClientManagementServiceTest {
 
     private OAuthClientMapper mapper;
     private CredentialScopePolicy scopePolicy;
+    private PasswordEncoder encoder;
     private OAuthClientManagementService service;
+
+    private static final Instant NOW = Instant.parse("2026-07-19T03:00:00Z");
 
     @BeforeEach
     void setUp() {
         mapper = mock(OAuthClientMapper.class);
-        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        encoder = mock(PasswordEncoder.class);
         scopePolicy = mock(CredentialScopePolicy.class);
         when(encoder.encode(any())).thenReturn("encoded-secret");
         when(scopePolicy.validateOAuthClientScopes(any(), any(), any())).thenAnswer(invocation ->
@@ -120,6 +128,68 @@ class OAuthClientManagementServiceTest {
         verify(mapper).update(any());
     }
 
+    @Test
+    void rotationMovesOnlyThePreviousHashIntoAnExplicitBoundedWindow() {
+        OAuthClientRecord existing = confidentialRecord();
+        when(mapper.findById(existing.id())).thenReturn(existing);
+        when(encoder.encode(any())).thenReturn("new-encoded-hash");
+        when(mapper.rotateSecret(
+                existing.id(), existing.clientSecretHash(), existing.clientSecretVersion(),
+                "new-encoded-hash", "AAAAAAAAAAAAAAAA",
+                NOW.plus(Duration.ofMinutes(10)), NOW)).thenReturn(1);
+        OAuthClientManagementService fixed = fixedService();
+
+        var rotated = fixed.rotateSecret(existing.id(), Duration.ofMinutes(10));
+
+        assertThat(rotated.rawSecret()).isNotBlank();
+        assertThat(rotated.client().clientSecretHash()).isEqualTo("new-encoded-hash");
+        assertThat(rotated.client().retiringClientSecretHash()).isEqualTo(existing.clientSecretHash());
+        assertThat(rotated.client().retiringClientSecretExpiresAt())
+                .isEqualTo(NOW.plus(Duration.ofMinutes(10)));
+        assertThat(rotated.client().clientSecretHash()).doesNotContain(rotated.rawSecret());
+        assertThat(rotated.client().retiringClientSecretHash()).doesNotContain(rotated.rawSecret());
+        verify(mapper).rotateSecret(
+                existing.id(), existing.clientSecretHash(), existing.clientSecretVersion(),
+                "new-encoded-hash", "AAAAAAAAAAAAAAAA",
+                NOW.plus(Duration.ofMinutes(10)), NOW);
+    }
+
+    @Test
+    void rotationRejectsAnUnboundedOverlap() {
+        OAuthClientRecord existing = confidentialRecord();
+        when(mapper.findById(existing.id())).thenReturn(existing);
+
+        assertThatThrownBy(() -> fixedService().rotateSecret(existing.id(), Duration.ofHours(25)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer than");
+
+        verify(mapper, never()).rotateSecret(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void retiringSecretCanBeRevokedWithoutChangingTheActiveHash() {
+        OAuthClientRecord existing = confidentialRecord();
+        OAuthClientRecord rotating = new OAuthClientRecord(
+                existing.id(), existing.clientId(), existing.clientSecretHash(), existing.clientSecretVersion(),
+                "retiring-encoded-hash", "v1", NOW.plusSeconds(600), NOW,
+                existing.clientName(), existing.authenticationMethods(), existing.grantTypes(),
+                existing.redirectUris(), existing.scopes(), existing.requireConsent(), existing.requirePkce(),
+                existing.serviceAccountId(), existing.enabled(), existing.createdAt(), existing.updatedAt());
+        when(mapper.findById(rotating.id())).thenReturn(rotating);
+        when(mapper.revokeRetiringSecret(
+                rotating.id(), rotating.retiringClientSecretHash(),
+                rotating.retiringClientSecretVersion(), NOW)).thenReturn(1);
+
+        OAuthClientRecord revoked = fixedService().revokeRetiringSecret(rotating.id());
+
+        assertThat(revoked.clientSecretHash()).isEqualTo(existing.clientSecretHash());
+        assertThat(revoked.retiringClientSecretHash()).isNull();
+        assertThat(revoked.retiringClientSecretExpiresAt()).isNull();
+        verify(mapper).revokeRetiringSecret(
+                rotating.id(), rotating.retiringClientSecretHash(),
+                rotating.retiringClientSecretVersion(), NOW);
+    }
+
     private OAuthClientManagementService.CreatedOAuthClient create(
             Set<String> methods,
             Set<String> grants,
@@ -134,6 +204,20 @@ class OAuthClientManagementServiceTest {
                 Set.of("project:list"),
                 true,
                 serviceAccountId);
+    }
+
+    private OAuthClientManagementService fixedService() {
+        return new OAuthClientManagementService(
+                mapper, encoder, scopePolicy, mock(SecureRandom.class),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofMinutes(15), Duration.ofHours(24));
+    }
+
+    private static OAuthClientRecord confidentialRecord() {
+        return new OAuthClientRecord(
+                "client-record-id", "agent-client", "old-encoded-hash", "v1",
+                null, null, null, null, "Agent client", "client_secret_basic",
+                "client_credentials", "", "project:list", false, true, 10L, true,
+                NOW.minusSeconds(3600), NOW.minusSeconds(3600));
     }
 
     private static Stream<String> unsafeRedirectUris() {

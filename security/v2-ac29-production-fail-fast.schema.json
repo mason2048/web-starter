@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v2-ac29-production-fail-fast.schema.json",
+  "title": "V2-AC-29 production fail-fast evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "acceptanceId", "status", "generatedAt", "candidate", "tool",
+    "image", "javaRuntime", "execution", "rsa", "dangerousCases", "hardenedControl",
+    "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "acceptanceId": {"const": "V2-AC-29"},
+    "status": {"$ref": "#/$defs/status"},
+    "generatedAt": {"type": "string", "format": "date-time", "pattern": "Z$", "maxLength": 40},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head", "tree", "tag", "tagObject", "mavenVersion", "frontendVersion",
+        "cleanWorktree", "sourceSha256"
+      ],
+      "properties": {
+        "head": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "tagObject": {"$ref": "#/$defs/gitObject"},
+        "mavenVersion": {"$ref": "#/$defs/version"},
+        "frontendVersion": {"$ref": "#/$defs/version"},
+        "cleanWorktree": {"const": true},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/rehearse_production_fail_fast.py",
+            "scripts/validate_production_fail_fast_evidence.py",
+            "security/v2-ac29-production-fail-fast.schema.json",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/ProductionConfigurationValidator.java",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/ProductionConfigurationInitializer.java",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/WebStarterApplication.java",
+            "pom.xml", "web-starter-admin/pom.xml", "web-starter-web/package.json",
+            "web-starter-admin/src/main/resources/application.yml", "Dockerfile"
+          ],
+          "properties": {
+            "scripts/rehearse_production_fail_fast.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_production_fail_fast_evidence.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-ac29-production-fail-fast.schema.json": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/ProductionConfigurationValidator.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/config/ProductionConfigurationInitializer.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/WebStarterApplication.java": {"$ref": "#/$defs/sha256"},
+            "pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/package.json": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/resources/application.yml": {"$ref": "#/$defs/sha256"},
+            "Dockerfile": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "validatorPath", "validatorSha256", "schemaPath", "schemaSha256"],
+      "properties": {
+        "path": {"const": "scripts/rehearse_production_fail_fast.py"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "validatorPath": {"const": "scripts/validate_production_fail_fast_evidence.py"},
+        "validatorSha256": {"$ref": "#/$defs/sha256"},
+        "schemaPath": {"const": "security/v2-ac29-production-fail-fast.schema.json"},
+        "schemaSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestedReference", "id", "manifestDigest", "ociVersion", "ociRevision",
+        "operatingSystem", "architecture", "javaHome"
+      ],
+      "properties": {
+        "requestedReference": {"$ref": "#/$defs/digestReference"},
+        "id": {"$ref": "#/$defs/imageId"},
+        "manifestDigest": {"$ref": "#/$defs/imageId"},
+        "ociVersion": {"$ref": "#/$defs/version"},
+        "ociRevision": {"$ref": "#/$defs/gitObject"},
+        "operatingSystem": {"const": "linux"},
+        "architecture": {"enum": ["amd64", "arm64"]},
+        "javaHome": {"type": "string", "pattern": "^/[0-9A-Za-z._+()/ -]{1,159}$"}
+      }
+    },
+    "javaRuntime": {"$ref": "#/$defs/javaRuntime"},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId", "containerCount", "dockerNetwork", "readOnlyRootFilesystem",
+        "publishedPorts", "hostBindMounts", "namedVolumeMounts", "tmpfsMountsPerContainer",
+        "pullPolicy", "dockerLogDriver", "immutableImageIdUsed", "exactOwnershipLabels", "cleanup"
+      ],
+      "properties": {
+        "runId": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+        "containerCount": {"const": 17},
+        "dockerNetwork": {"const": "none"},
+        "readOnlyRootFilesystem": {"const": true},
+        "publishedPorts": {"const": 0},
+        "hostBindMounts": {"const": 0},
+        "namedVolumeMounts": {"const": 0},
+        "tmpfsMountsPerContainer": {"const": 1},
+        "pullPolicy": {"const": "never"},
+        "dockerLogDriver": {"const": "none"},
+        "immutableImageIdUsed": {"const": true},
+        "exactOwnershipLabels": {"const": true},
+        "cleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedTargets", "cleanupCalls", "alreadyAbsentAfterAutoRemove",
+            "ownedContainersRemoved", "ownershipLabelsVerifiedBeforeRemoval",
+            "unownedRemovalAttempts", "residualContainers", "complete"
+          ],
+          "properties": {
+            "expectedTargets": {"const": 17},
+            "cleanupCalls": {"const": 17},
+            "alreadyAbsentAfterAutoRemove": {"type": "integer", "minimum": 0, "maximum": 17},
+            "ownedContainersRemoved": {"type": "integer", "minimum": 0, "maximum": 17},
+            "ownershipLabelsVerifiedBeforeRemoval": {"type": "integer", "minimum": 0, "maximum": 17},
+            "unownedRemovalAttempts": {"const": 0},
+            "residualContainers": {"const": 0},
+            "complete": {"const": true}
+          }
+        }
+      }
+    },
+    "rsa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generatedBits", "persisted"],
+      "properties": {"generatedBits": {"const": 3072}, "persisted": {"const": false}}
+    },
+    "dangerousCases": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 15,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "http-issuer"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "localhost-issuer"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "http-audience"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "insecure-cookie"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "development-rsa"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "empty-secret"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "placeholder-secret"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "missing-rsa"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "broad-host"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "local-host"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "broad-origin"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "http-origin"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "dangerous-log-level"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "management-username-reuse"}}}]},
+        {"allOf": [{"$ref": "#/$defs/dangerousCase"}, {"properties": {"case": {"const": "management-password-reuse"}}}]}
+      ],
+      "items": false
+    },
+    "hardenedControl": {"$ref": "#/$defs/hardenedControl"},
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outsideRepository", "directoryMode", "fileMode", "onlyReportAndChecksum",
+        "rawLogsPersisted", "fixtureMaterialPersisted"
+      ],
+      "properties": {
+        "outsideRepository": {"const": true},
+        "directoryMode": {"const": "0700"},
+        "fileMode": {"const": "0600"},
+        "onlyReportAndChecksum": {"const": true},
+        "rawLogsPersisted": {"const": false},
+        "fixtureMaterialPersisted": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "digestReference": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,190}@sha256:[0-9a-f]{64}$"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "failures": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"}, "maxItems": 8, "uniqueItems": true},
+    "logFields": {
+      "type": "object",
+      "properties": {
+        "exitCode": {"type": "integer", "minimum": 0, "maximum": 255},
+        "timedOut": {"type": "boolean"},
+        "logBytes": {"type": "integer", "minimum": 1},
+        "logSha256": {"$ref": "#/$defs/sha256"},
+        "commandSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "earlyMarkers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tomcat", "flyway", "hikari", "jdbcMysql", "communicationsLinkFailure", "unableDatabaseConnection"],
+      "properties": {
+        "tomcat": {"type": "integer", "minimum": 0},
+        "flyway": {"type": "integer", "minimum": 0},
+        "hikari": {"type": "integer", "minimum": 0},
+        "jdbcMysql": {"type": "integer", "minimum": 0},
+        "communicationsLinkFailure": {"type": "integer", "minimum": 0},
+        "unableDatabaseConnection": {"type": "integer", "minimum": 0}
+      }
+    },
+    "dangerousCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case", "changedKeys", "status", "exitCode", "timedOut", "logBytes", "logSha256",
+        "commandSha256", "expectedRejectionSha256", "exactRejectionCount", "rejectionOffset",
+        "infrastructureMarkersBeforeRejection", "checks", "failures"
+      ],
+      "properties": {
+        "case": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$"},
+        "changedKeys": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,127}$"}},
+        "status": {"$ref": "#/$defs/status"},
+        "exitCode": {"type": "integer", "minimum": 0, "maximum": 255},
+        "timedOut": {"type": "boolean"},
+        "logBytes": {"type": "integer", "minimum": 1},
+        "logSha256": {"$ref": "#/$defs/sha256"},
+        "commandSha256": {"$ref": "#/$defs/sha256"},
+        "expectedRejectionSha256": {"$ref": "#/$defs/sha256"},
+        "exactRejectionCount": {"type": "integer", "minimum": 0},
+        "rejectionOffset": {"type": "integer", "minimum": -1},
+        "infrastructureMarkersBeforeRejection": {"$ref": "#/$defs/earlyMarkers"},
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nonZeroExit", "completedBeforeTimeout", "exactRejectionObservedOnce", "noInfrastructureBeforeRejection"],
+          "properties": {
+            "nonZeroExit": {"type": "boolean"},
+            "completedBeforeTimeout": {"type": "boolean"},
+            "exactRejectionObservedOnce": {"type": "boolean"},
+            "noInfrastructureBeforeRejection": {"type": "boolean"}
+          }
+        },
+        "failures": {"$ref": "#/$defs/failures"}
+      }
+    },
+    "hardenedControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case", "status", "exitCode", "timedOut", "logBytes", "logSha256",
+        "commandSha256", "unsafeRejectionCount", "databaseMarkers", "checks", "failures"
+      ],
+      "properties": {
+        "case": {"const": "hardened-networkless-control"},
+        "status": {"$ref": "#/$defs/status"},
+        "exitCode": {"type": "integer", "minimum": 0, "maximum": 255},
+        "timedOut": {"type": "boolean"},
+        "logBytes": {"type": "integer", "minimum": 1},
+        "logSha256": {"$ref": "#/$defs/sha256"},
+        "commandSha256": {"$ref": "#/$defs/sha256"},
+        "unsafeRejectionCount": {"type": "integer", "minimum": 0},
+        "databaseMarkers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tomcat", "flyway", "hikari", "jdbcMysql", "communicationsLinkFailure",
+            "unableDatabaseConnection", "networkUnreachable", "connectionRefused", "mysqlDriver"
+          ],
+          "properties": {
+            "tomcat": {"type": "integer", "minimum": 0},
+            "flyway": {"type": "integer", "minimum": 0},
+            "hikari": {"type": "integer", "minimum": 0},
+            "jdbcMysql": {"type": "integer", "minimum": 0},
+            "communicationsLinkFailure": {"type": "integer", "minimum": 0},
+            "unableDatabaseConnection": {"type": "integer", "minimum": 0},
+            "networkUnreachable": {"type": "integer", "minimum": 0},
+            "connectionRefused": {"type": "integer", "minimum": 0},
+            "mysqlDriver": {"type": "integer", "minimum": 0}
+          }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nonZeroExit", "completedBeforeTimeout", "securityValidationPassed", "databaseFailureObserved"],
+          "properties": {
+            "nonZeroExit": {"type": "boolean"},
+            "completedBeforeTimeout": {"type": "boolean"},
+            "securityValidationPassed": {"type": "boolean"},
+            "databaseFailureObserved": {"type": "boolean"}
+          }
+        },
+        "failures": {"$ref": "#/$defs/failures"}
+      }
+    },
+    "javaRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "imageId", "exitCode", "timedOut", "logBytes", "logSha256",
+        "commandSha256", "specificationVersion", "runtimeVersion", "vendor", "checks", "failures"
+      ],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "imageId": {"$ref": "#/$defs/imageId"},
+        "exitCode": {"type": "integer", "minimum": 0, "maximum": 255},
+        "timedOut": {"type": "boolean"},
+        "logBytes": {"type": "integer", "minimum": 1},
+        "logSha256": {"$ref": "#/$defs/sha256"},
+        "commandSha256": {"$ref": "#/$defs/sha256"},
+        "specificationVersion": {"type": "string", "maxLength": 16},
+        "runtimeVersion": {"type": "string", "maxLength": 160},
+        "vendor": {"type": "string", "maxLength": 160},
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exitZero", "completedBeforeTimeout", "specificationIs21", "runtimeVersionIs21", "identityValuesSanitized"],
+          "properties": {
+            "exitZero": {"type": "boolean"},
+            "completedBeforeTimeout": {"type": "boolean"},
+            "specificationIs21": {"type": "boolean"},
+            "runtimeVersionIs21": {"type": "boolean"},
+            "identityValuesSanitized": {"type": "boolean"}
+          }
+        },
+        "failures": {"$ref": "#/$defs/failures"}
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@
     <el-alert
       class="security-notice"
       type="info"
-      title="个人令牌绑定当前用户及其角色。权限按所选 Scope 与实时 RBAC 权限取交集，角色变更会立即影响后续调用。"
+      title="个人令牌权限由 Scope 与实时 RBAC 取交集。列表只返回令牌标识，完整明文仅在签发成功时展示一次，关闭后不能再次读取。"
       :closable="false"
       show-icon
     />
@@ -25,11 +25,18 @@
         clearable
         :prefix-icon="Search"
       />
-      <el-select v-model="statusFilter" class="status-filter" placeholder="全部状态">
-        <el-option label="全部状态" value="" />
-        <el-option label="有效" value="ACTIVE" />
-        <el-option label="已过期" value="EXPIRED" />
-        <el-option label="已吊销" value="REVOKED" />
+      <el-select
+        v-model="credentialFilter"
+        class="lifecycle-filter"
+        placeholder="全部凭据"
+        data-testid="personal-token-filter"
+      >
+        <el-option
+          v-for="option in credentialLifecycleOptions"
+          :key="option.value || 'ALL'"
+          :label="option.label"
+          :value="option.value"
+        />
       </el-select>
       <el-button :icon="Refresh" :loading="loading" @click="loadTokens">刷新</el-button>
     </div>
@@ -48,8 +55,13 @@
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="tokenState(row).type" size="small" effect="light">{{ tokenState(row).label }}</el-tag>
+            <el-tag :type="credentialStatus(row).type" size="small" effect="light">
+              {{ credentialStatus(row).label }}
+            </el-tag>
           </template>
+        </el-table-column>
+        <el-table-column label="安全提示" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ credentialNotices(row).join('、') || '—' }}</template>
         </el-table-column>
         <el-table-column label="有效期" min-width="175">
           <template #default="{ row }">{{ row.expiresAt ? formatDateTime(row.expiresAt) : '长期有效' }}</template>
@@ -63,7 +75,7 @@
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="can('security:personal-token:revoke') && tokenState(row).key === 'ACTIVE'"
+              v-if="can('security:personal-token:revoke') && credentialStatus(row).key === 'ACTIVE'"
               link
               type="danger"
               @click="confirmRevoke(row)"
@@ -106,9 +118,14 @@ import TokenIssueDialog from '@/components/TokenIssueDialog.vue'
 import { usePermission } from '@/composables/usePermission'
 import { useAuthStore } from '@/stores/auth'
 import type { IssueTokenPayload, TokenSummary } from '@/types/models'
+import {
+  credentialLifecycleOptions,
+  credentialNotices,
+  credentialStatus,
+  matchesCredentialLifecycle,
+  type CredentialLifecycleFilter,
+} from '@/utils/credentials'
 import { displayError, formatDateTime } from '@/utils/format'
-
-type TokenStatusKey = 'ACTIVE' | 'EXPIRED' | 'REVOKED'
 
 const auth = useAuthStore()
 const { can } = usePermission()
@@ -121,29 +138,16 @@ const issueOpen = ref(false)
 const secretOpen = ref(false)
 const rawToken = ref('')
 const keyword = ref('')
-const statusFilter = ref<TokenStatusKey | ''>('')
+const credentialFilter = ref<CredentialLifecycleFilter>('')
 
 const scopeOptions = computed(() => [...new Set(auth.currentUser?.permissions || [])].sort())
 const filteredTokens = computed(() => {
   const search = keyword.value.toLowerCase()
   return tokens.value.filter((token) => {
     const matchesSearch = !search || `${token.name} ${token.tokenHint}`.toLowerCase().includes(search)
-    const matchesStatus = !statusFilter.value || tokenState(token).key === statusFilter.value
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesCredentialLifecycle(token, credentialFilter.value)
   })
 })
-
-function tokenState(token: TokenSummary): {
-  key: TokenStatusKey
-  label: string
-  type: 'success' | 'warning' | 'danger'
-} {
-  if (token.revokedAt) return { key: 'REVOKED', label: '已吊销', type: 'danger' }
-  if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
-    return { key: 'EXPIRED', label: '已过期', type: 'warning' }
-  }
-  return { key: 'ACTIVE', label: '有效', type: 'success' }
-}
 
 function formatScopes(scopes: string[]): string {
   return scopes?.length ? scopes.join(', ') : '—'
@@ -212,7 +216,7 @@ onMounted(loadTokens)
   margin-bottom: 20px;
 }
 
-.status-filter {
-  width: 142px;
+.lifecycle-filter {
+  width: 172px;
 }
 </style>

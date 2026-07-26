@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/release-acceptance-input.schema.json",
+  "title": "Web Starter release acceptance input",
+  "description": "Explicit V1 and V2 AC-01..AC-44 results supplied to the fail-closed release evidence gate. Every evidence URI must resolve to hash-verified repository or run-artifact bytes. PASS is accepted only for acceptance IDs registered to an independent semantic verifier in the gate. The tracked input declares tag and version only; the gate derives the Git commit from the annotated tag and verifies this file against that commit. V2-AC-45 is derived by the gate and must not be supplied here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "release", "suites"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "release": {"$ref": "#/$defs/release"},
+    "suites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v1", "v2"],
+      "properties": {
+        "v1": {"$ref": "#/$defs/suite"},
+        "v2": {"$ref": "#/$defs/suite"}
+      }
+    }
+  },
+  "$defs": {
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag", "version"],
+      "properties": {
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"}
+      }
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["results"],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/result"}
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "observedAt", "evidence"],
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": {"status": {"const": "PASS"}}
+          },
+          "then": {
+            "properties": {
+              "id": {
+                "enum": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07", "AC-08", "AC-09", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16", "AC-17", "AC-18", "AC-19", "AC-20", "AC-21", "AC-22", "AC-23", "AC-24", "AC-25", "AC-26", "AC-27", "AC-28", "AC-29", "AC-30", "AC-31", "AC-32", "AC-33", "AC-34", "AC-35", "AC-36", "AC-37", "AC-38", "AC-39", "AC-41", "AC-42", "V2-AC-01", "V2-AC-02", "V2-AC-03", "V2-AC-04", "V2-AC-05", "V2-AC-06", "V2-AC-07", "V2-AC-08", "V2-AC-09", "V2-AC-10", "V2-AC-11", "V2-AC-12", "V2-AC-13", "V2-AC-14", "V2-AC-15", "V2-AC-16", "V2-AC-17", "V2-AC-18", "V2-AC-19", "V2-AC-20", "V2-AC-21", "V2-AC-22", "V2-AC-23", "V2-AC-24", "V2-AC-25", "V2-AC-26", "V2-AC-27", "V2-AC-28", "V2-AC-29", "V2-AC-30", "V2-AC-31", "V2-AC-32", "V2-AC-33", "V2-AC-34", "V2-AC-35", "V2-AC-36", "V2-AC-37", "V2-AC-38", "V2-AC-39", "V2-AC-40", "V2-AC-41", "V2-AC-42", "V2-AC-43", "V2-AC-44"]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^(?:V2-)?AC-[0-9]{2}$"},
+        "status": {"enum": ["PASS", "FAIL", "NOT_COVERED", "ENV_REQUIRED"]},
+        "observedAt": {"type": "string", "format": "date-time"},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "pattern": "^(?:repo|artifact)://[A-Za-z0-9][A-Za-z0-9._-]{0,127}(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,127})*#sha256=[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

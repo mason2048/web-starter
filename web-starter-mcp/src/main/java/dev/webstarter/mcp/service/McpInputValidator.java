@@ -33,7 +33,7 @@ final class McpInputValidator {
 
     private static void validateValue(String name, Object value, Map<String, Object> definition) {
         if (value == null) {
-            return;
+            throw new IllegalArgumentException(name + " must not be null");
         }
         String type = String.valueOf(definition.get("type"));
         if ("string".equals(type)) {

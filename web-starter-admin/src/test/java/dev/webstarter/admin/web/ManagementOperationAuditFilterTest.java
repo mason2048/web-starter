@@ -4,17 +4,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 import dev.webstarter.core.security.CallerType;
 import dev.webstarter.core.security.CurrentCaller;
+import dev.webstarter.core.trace.TraceContext;
 import dev.webstarter.security.auth.CallerSnapshotRequestFilter;
 import dev.webstarter.system.audit.AuditLogRecorder;
 import dev.webstarter.system.audit.LoginAuditEvent;
 import dev.webstarter.system.audit.McpCallAuditEvent;
 import dev.webstarter.system.audit.OperationAuditEvent;
+import dev.webstarter.system.audit.OperationAuditRoute;
+import dev.webstarter.system.audit.OperationAuditRouteRegistry;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.TransactionDefinition;
@@ -45,6 +50,7 @@ class ManagementOperationAuditFilterTest {
         assertThat(transactions.commits).isEqualTo(1);
         assertThat(transactions.rollbacks).isZero();
         assertThat(successes).extracting(OperationAuditEvent::result).containsExactly("SUCCESS");
+        assertThat(successes.getFirst().traceId()).isNotBlank();
         assertThat(failures).isEmpty();
         assertThat(response.getContentAsString()).isEqualTo("ok");
     }
@@ -93,6 +99,48 @@ class ManagementOperationAuditFilterTest {
     }
 
     @Test
+    void contributedServiceRouteAudits409And403AfterRollbackWithTheRequestTrace() throws Exception {
+        RecordingTransactionManager transactions = new RecordingTransactionManager();
+        List<OperationAuditEvent> failures = new ArrayList<>();
+        OperationAuditRoute widgetRoute = OperationAuditRoute.serviceOwned(
+                "/api/widgets", "widget", "widget");
+        var filter = filter(
+                transactions,
+                recorder(event -> {
+                    throw new AssertionError("service-owned success must not be duplicated");
+                }),
+                failures::add,
+                widgetRoute);
+
+        MDC.put(TraceContext.TRACE_ID_KEY, "trace-generated-module");
+        try {
+            var conflict = request("PUT", "/api/widgets/7");
+            filter.doFilter(conflict, new MockHttpServletResponse(), (ignoredRequest, currentResponse) ->
+                    ((jakarta.servlet.http.HttpServletResponse) currentResponse).setStatus(409));
+
+            var forbidden = request("DELETE", "/api/widgets/8");
+            filter.doFilter(forbidden, new MockHttpServletResponse(), (ignoredRequest, currentResponse) ->
+                    ((jakarta.servlet.http.HttpServletResponse) currentResponse).setStatus(403));
+        }
+        finally {
+            MDC.remove(TraceContext.TRACE_ID_KEY);
+        }
+
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(2);
+        assertThat(failures).extracting(OperationAuditEvent::module)
+                .containsExactly("widget", "widget");
+        assertThat(failures).extracting(OperationAuditEvent::resourceType)
+                .containsExactly("widget", "widget");
+        assertThat(failures).extracting(OperationAuditEvent::resourceId)
+                .containsExactly("7", "8");
+        assertThat(failures).extracting(OperationAuditEvent::action)
+                .containsExactly("UPDATE", "REMOVE");
+        assertThat(failures).extracting(OperationAuditEvent::traceId)
+                .containsOnly("trace-generated-module");
+    }
+
+    @Test
     void successAuditInsertFailureRollsBackBusinessTransaction() {
         RecordingTransactionManager transactions = new RecordingTransactionManager();
         List<OperationAuditEvent> failures = new ArrayList<>();
@@ -116,26 +164,41 @@ class ManagementOperationAuditFilterTest {
     @Test
     void derivesCanonicalActionsAndResourceIdsForNestedSecurityRoutes() {
         MockHttpServletRequest password = request("PUT", "/api/users/7/password");
-        assertThat(ManagementOperationAuditFilter.describe(password))
+        assertThat(ManagementOperationAuditFilter.describe(password,
+                OperationAuditRoute.filterOwned("/api/users", "users", "user")))
                 .isEqualTo(new ManagementOperationAuditFilter.AuditDescriptor(
                         "users", "RESET_PASSWORD", "user", "7"));
 
         MockHttpServletRequest rotate = request(
                 "POST", "/api/security/oauth-clients/agent-1/rotate-secret");
-        assertThat(ManagementOperationAuditFilter.describe(rotate))
+        assertThat(ManagementOperationAuditFilter.describe(rotate,
+                OperationAuditRoute.filterOwned(
+                        "/api/security/oauth-clients", "security", "oauth-client")))
                 .isEqualTo(new ManagementOperationAuditFilter.AuditDescriptor(
                         "security", "ROTATE_SECRET", "oauth-client", "agent-1"));
+
+        MockHttpServletRequest revokeSecret = request(
+                "DELETE", "/api/security/oauth-clients/agent-1/retiring-secret");
+        assertThat(ManagementOperationAuditFilter.describe(revokeSecret,
+                OperationAuditRoute.filterOwned(
+                        "/api/security/oauth-clients", "security", "oauth-client")))
+                .isEqualTo(new ManagementOperationAuditFilter.AuditDescriptor(
+                        "security", "REVOKE_SECRET", "oauth-client", "agent-1"));
 
         MockHttpServletRequest issue = request(
                 "POST", "/api/security/service-accounts/10/tokens");
         issue.setAttribute(OperationAuditRequestContext.RESOURCE_ID_ATTRIBUTE, "99");
-        assertThat(ManagementOperationAuditFilter.describe(issue))
+        assertThat(ManagementOperationAuditFilter.describe(issue,
+                OperationAuditRoute.filterOwned(
+                        "/api/security/service-accounts", "security", "service-account")))
                 .isEqualTo(new ManagementOperationAuditFilter.AuditDescriptor(
                         "security", "ISSUE_TOKEN", "token", "99"));
 
         MockHttpServletRequest revoke = request(
                 "DELETE", "/api/security/service-accounts/10/tokens/99");
-        assertThat(ManagementOperationAuditFilter.describe(revoke))
+        assertThat(ManagementOperationAuditFilter.describe(revoke,
+                OperationAuditRoute.filterOwned(
+                        "/api/security/service-accounts", "security", "service-account")))
                 .isEqualTo(new ManagementOperationAuditFilter.AuditDescriptor(
                         "security", "REVOKE_TOKEN", "token", "99"));
     }
@@ -143,9 +206,20 @@ class ManagementOperationAuditFilterTest {
     private static ManagementOperationAuditFilter filter(
             RecordingTransactionManager transactions,
             AuditLogRecorder recorder,
-            OperationFailureAuditWriter failureWriter) {
+            OperationFailureAuditWriter failureWriter,
+            OperationAuditRoute... additionalRoutes) {
+        List<OperationAuditRoute> routes = new ArrayList<>(List.of(
+                OperationAuditRoute.filterOwned("/api/users", "users", "user"),
+                OperationAuditRoute.filterOwned("/api/configs", "configs", "config"),
+                OperationAuditRoute.serviceOwned("/api/projects", "project", "project"),
+                OperationAuditRoute.filterOwned(
+                        "/api/security/oauth-clients", "security", "oauth-client"),
+                OperationAuditRoute.filterOwned(
+                        "/api/security/service-accounts", "security", "service-account")));
+        routes.addAll(Arrays.asList(additionalRoutes));
+        OperationAuditRouteRegistry registry = new OperationAuditRouteRegistry(List.of(() -> routes));
         return new ManagementOperationAuditFilter(
-                recorder, failureWriter, transactions);
+                recorder, failureWriter, transactions, registry);
     }
 
     private static MockHttpServletRequest request(String method, String path) {

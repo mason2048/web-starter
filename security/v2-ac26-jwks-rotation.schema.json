@@ -1,0 +1,391 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v2-ac26-jwks-rotation.schema.json",
+  "title": "V2-AC-26 JWKS rotation runtime evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "acceptanceId", "status", "generatedAt", "candidate", "tool",
+    "runtime", "keyRing", "observations", "supplementalConfigurationGuards",
+    "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "acceptanceId": {"const": "V2-AC-26"},
+    "status": {"const": "PASS"},
+    "generatedAt": {"type": "string", "format": "date-time", "pattern": "Z$", "maxLength": 40},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head", "tree", "tag", "tagObject", "mavenVersion", "frontendVersion",
+        "cleanWorktree", "sourceSha256"
+      ],
+      "properties": {
+        "head": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "tag": {"$ref": "#/$defs/tag"},
+        "tagObject": {"$ref": "#/$defs/gitObject"},
+        "mavenVersion": {"$ref": "#/$defs/version"},
+        "frontendVersion": {"$ref": "#/$defs/version"},
+        "cleanWorktree": {"const": true},
+        "sourceSha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scripts/rehearse_jwks_rotation.py",
+            "scripts/validate_jwks_rotation_evidence.py",
+            "security/v2-ac26-jwks-rotation.schema.json",
+            "scripts/acceptance_network.py",
+            "web-starter-security/src/main/java/dev/webstarter/security/oauth/OAuthSigningKeyRing.java",
+            "web-starter-security/src/test/java/dev/webstarter/security/oauth/OAuthSigningKeyRingTest.java",
+            "web-starter-security/src/main/java/dev/webstarter/security/config/WebStarterSecurityConfiguration.java",
+            "web-starter-security/src/main/java/dev/webstarter/security/config/WebStarterSecurityProperties.java",
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpInvocationService.java",
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpToolCatalog.java",
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/TraceIdFilter.java",
+            "compose.production.yaml", "pom.xml", "web-starter-security/pom.xml",
+            "web-starter-mcp/pom.xml", "web-starter-web/package.json"
+          ],
+          "properties": {
+            "scripts/rehearse_jwks_rotation.py": {"$ref": "#/$defs/sha256"},
+            "scripts/validate_jwks_rotation_evidence.py": {"$ref": "#/$defs/sha256"},
+            "security/v2-ac26-jwks-rotation.schema.json": {"$ref": "#/$defs/sha256"},
+            "scripts/acceptance_network.py": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/src/main/java/dev/webstarter/security/oauth/OAuthSigningKeyRing.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/src/test/java/dev/webstarter/security/oauth/OAuthSigningKeyRingTest.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/src/main/java/dev/webstarter/security/config/WebStarterSecurityConfiguration.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/src/main/java/dev/webstarter/security/config/WebStarterSecurityProperties.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpInvocationService.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/src/main/java/dev/webstarter/mcp/service/McpToolCatalog.java": {"$ref": "#/$defs/sha256"},
+            "web-starter-admin/src/main/java/dev/webstarter/admin/web/TraceIdFilter.java": {"$ref": "#/$defs/sha256"},
+            "compose.production.yaml": {"$ref": "#/$defs/sha256"},
+            "pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-security/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-mcp/pom.xml": {"$ref": "#/$defs/sha256"},
+            "web-starter-web/package.json": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "validatorPath", "validatorSha256", "schemaPath", "schemaSha256"],
+      "properties": {
+        "path": {"const": "scripts/rehearse_jwks_rotation.py"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "validatorPath": {"const": "scripts/validate_jwks_rotation_evidence.py"},
+        "validatorSha256": {"$ref": "#/$defs/sha256"},
+        "schemaPath": {"const": "security/v2-ac26-jwks-rotation.schema.json"},
+        "schemaSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "composeProject", "publicOriginSha256", "privateOriginSha256", "privatePort",
+        "publicPort", "tracePrefix", "runtimeIdentitySha256", "app", "nginx",
+        "containerTransitions"
+      ],
+      "properties": {
+        "composeProject": {"type": "string", "pattern": "^web-starter-ac26-[a-z0-9][a-z0-9-]{0,39}$"},
+        "publicOriginSha256": {"$ref": "#/$defs/sha256"},
+        "privateOriginSha256": {"$ref": "#/$defs/sha256"},
+        "privatePort": {"type": "integer", "minimum": 1024, "maximum": 65535},
+        "publicPort": {"type": "integer", "minimum": 1024, "maximum": 65535},
+        "tracePrefix": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{7,31}$"},
+        "runtimeIdentitySha256": {"$ref": "#/$defs/sha256"},
+        "app": {"$ref": "#/$defs/releaseImage"},
+        "nginx": {"$ref": "#/$defs/releaseImage"},
+        "containerTransitions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/transition"}
+        }
+      }
+    },
+    "keyRing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "oldKid", "newKid", "oldPublicFingerprintSha256", "newPublicFingerprintSha256",
+        "retainUntilEpochSeconds", "terminalMode", "initialPrivateKeyCount",
+        "rotatedPrivateKeyCount", "retiringPrivateMaterialPresent",
+        "terminalRevocationConfigured"
+      ],
+      "properties": {
+        "oldKid": {"$ref": "#/$defs/kid"},
+        "newKid": {"$ref": "#/$defs/kid"},
+        "oldPublicFingerprintSha256": {"$ref": "#/$defs/sha256"},
+        "newPublicFingerprintSha256": {"$ref": "#/$defs/sha256"},
+        "retainUntilEpochSeconds": {"type": "integer", "minimum": 1},
+        "terminalMode": {"enum": ["expiry", "revocation"]},
+        "initialPrivateKeyCount": {"const": 1},
+        "rotatedPrivateKeyCount": {"const": 1},
+        "retiringPrivateMaterialPresent": {"const": false},
+        "terminalRevocationConfigured": {"type": "boolean"}
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "rotated", "terminal"],
+      "properties": {
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["observedAtEpochSeconds", "jwks", "oldOauthGrant", "oldMcp"],
+          "properties": {
+            "observedAtEpochSeconds": {"type": "integer", "minimum": 1},
+            "jwks": {"$ref": "#/$defs/jwks"},
+            "oldOauthGrant": {"$ref": "#/$defs/oauthGrant"},
+            "oldMcp": {"$ref": "#/$defs/mcpCall"}
+          }
+        },
+        "rotated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observedAtEpochSeconds", "jwks", "newOauthGrant", "oldWithinWindowMcp",
+            "newActiveMcp", "oldTraceAudit", "newTraceAudit"
+          ],
+          "properties": {
+            "observedAtEpochSeconds": {"type": "integer", "minimum": 1},
+            "jwks": {"$ref": "#/$defs/jwks"},
+            "newOauthGrant": {"$ref": "#/$defs/oauthGrant"},
+            "oldWithinWindowMcp": {"$ref": "#/$defs/mcpCall"},
+            "newActiveMcp": {"$ref": "#/$defs/mcpCall"},
+            "oldTraceAudit": {"$ref": "#/$defs/audit"},
+            "newTraceAudit": {"$ref": "#/$defs/audit"}
+          }
+        },
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "observedAtEpochSeconds", "jwks", "oldCredentialRejected", "newActiveMcp",
+            "newTraceAudit"
+          ],
+          "properties": {
+            "observedAtEpochSeconds": {"type": "integer", "minimum": 1},
+            "jwks": {"$ref": "#/$defs/jwks"},
+            "oldCredentialRejected": {"$ref": "#/$defs/rejection"},
+            "newActiveMcp": {"$ref": "#/$defs/mcpCall"},
+            "newTraceAudit": {"$ref": "#/$defs/audit"}
+          }
+        }
+      }
+    },
+    "supplementalConfigurationGuards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "unknownKidRuntime", "invalidActiveRuntime", "unitTestSourcePath",
+        "unitTestSourceSha256"
+      ],
+      "properties": {
+        "status": {"const": "SOURCE_BOUND_ONLY"},
+        "unknownKidRuntime": {"const": "NOT_COVERED"},
+        "invalidActiveRuntime": {"const": "NOT_COVERED"},
+        "unitTestSourcePath": {"const": "web-starter-security/src/test/java/dev/webstarter/security/oauth/OAuthSigningKeyRingTest.java"},
+        "unitTestSourceSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outsideRepository", "directoryMode", "fileMode", "onlyReportAndChecksum",
+        "rawHttpBodiesPersisted", "credentialsPersisted", "privateKeyMaterialPersisted",
+        "arbitraryHookAccepted", "dockerResourcesRemoved"
+      ],
+      "properties": {
+        "outsideRepository": {"const": true},
+        "directoryMode": {"const": "0700"},
+        "fileMode": {"const": "0600"},
+        "onlyReportAndChecksum": {"const": true},
+        "rawHttpBodiesPersisted": {"const": false},
+        "credentialsPersisted": {"const": false},
+        "privateKeyMaterialPersisted": {"const": false},
+        "arbitraryHookAccepted": {"const": false},
+        "dockerResourcesRemoved": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"},
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+    "kid": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+    "traceId": {"type": "string", "pattern": "^[A-Za-z0-9._-]{8,64}$"},
+    "containerId": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "digestReference": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,190}@sha256:[0-9a-f]{64}$"},
+    "releaseImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestedReference", "id", "manifestDigest", "ociVersion", "ociRevision"],
+      "properties": {
+        "requestedReference": {"$ref": "#/$defs/digestReference"},
+        "id": {"$ref": "#/$defs/imageId"},
+        "manifestDigest": {"$ref": "#/$defs/imageId"},
+        "ociVersion": {"$ref": "#/$defs/version"},
+        "ociRevision": {"$ref": "#/$defs/gitObject"}
+      }
+    },
+    "ingressContainerIds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nginx", "mcp-public-nginx"],
+      "properties": {
+        "nginx": {"$ref": "#/$defs/containerId"},
+        "mcp-public-nginx": {"$ref": "#/$defs/containerId"}
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase", "previousContainerId", "currentContainerId", "imageId",
+        "previousIngressContainerIds", "currentIngressContainerIds", "nginxImageId",
+        "nginxReference", "projectLabelMatched", "serviceLabelMatched", "fixedServices",
+        "allContainersHealthy", "portBindingsMatched", "noBuild", "noPull", "noDependencies"
+      ],
+      "properties": {
+        "phase": {"enum": ["baseline", "rotated", "terminal"]},
+        "previousContainerId": {"$ref": "#/$defs/containerId"},
+        "currentContainerId": {"$ref": "#/$defs/containerId"},
+        "imageId": {"$ref": "#/$defs/imageId"},
+        "previousIngressContainerIds": {"$ref": "#/$defs/ingressContainerIds"},
+        "currentIngressContainerIds": {"$ref": "#/$defs/ingressContainerIds"},
+        "nginxImageId": {"$ref": "#/$defs/imageId"},
+        "nginxReference": {"$ref": "#/$defs/digestReference"},
+        "projectLabelMatched": {"const": true},
+        "serviceLabelMatched": {"const": true},
+        "fixedServices": {"const": ["app", "mcp-public-nginx", "nginx"]},
+        "allContainersHealthy": {"const": true},
+        "portBindingsMatched": {"const": true},
+        "noBuild": {"const": true},
+        "noPull": {"const": true},
+        "noDependencies": {"const": true}
+      }
+    },
+    "jwks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "httpStatus", "responseContentTypeJson", "observedAtEpochSeconds", "keyCount",
+        "kids", "publicFingerprintSha256",
+        "privateParametersAbsent", "metadataIssuerMatched", "metadataJwksUriMatched",
+        "responseSha256"
+      ],
+      "properties": {
+        "httpStatus": {"const": 200},
+        "responseContentTypeJson": {"const": true},
+        "observedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "keyCount": {"type": "integer", "minimum": 1, "maximum": 2},
+        "kids": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/kid"}},
+        "publicFingerprintSha256": {
+          "type": "object", "minProperties": 1, "maxProperties": 2,
+          "propertyNames": {"pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        },
+        "privateParametersAbsent": {"const": true},
+        "metadataIssuerMatched": {"const": true},
+        "metadataJwksUriMatched": {"const": true},
+        "responseSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "oauthGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "httpStatus", "responseContentTypeJson", "kid", "algorithm", "issuedAtEpochSeconds",
+        "expiresAtEpochSeconds", "protectedHeaderSha256", "claimsSha256", "responseSha256",
+        "issuerMatched", "audienceMatched", "requiredScopesMatched"
+      ],
+      "properties": {
+        "httpStatus": {"const": 200},
+        "responseContentTypeJson": {"const": true},
+        "kid": {"$ref": "#/$defs/kid"},
+        "algorithm": {"const": "RS256"},
+        "issuedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "expiresAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "protectedHeaderSha256": {"$ref": "#/$defs/sha256"},
+        "claimsSha256": {"$ref": "#/$defs/sha256"},
+        "responseSha256": {"$ref": "#/$defs/sha256"},
+        "issuerMatched": {"const": true},
+        "audienceMatched": {"const": true},
+        "requiredScopesMatched": {"const": true}
+      }
+    },
+    "mcpCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initializeHttpStatus", "initializedHttpStatus", "toolCallHttpStatus", "deleteHttpStatus",
+        "protocolVersion", "serverName", "toolName", "toolResultSuccess",
+        "startedAtEpochSeconds", "completedAtEpochSeconds", "traceId",
+        "traceHeaderMatched", "sessionIdSha256", "initializeResponseSha256", "toolResponseSha256"
+      ],
+      "properties": {
+        "initializeHttpStatus": {"const": 200},
+        "initializedHttpStatus": {"enum": [200, 202, 204]},
+        "toolCallHttpStatus": {"const": 200},
+        "deleteHttpStatus": {"enum": [200, 202, 204]},
+        "protocolVersion": {"const": "2025-11-25"},
+        "serverName": {"const": "web-starter-mcp"},
+        "toolName": {"const": "system.info"},
+        "toolResultSuccess": {"const": true},
+        "startedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "completedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "traceId": {"$ref": "#/$defs/traceId"},
+        "traceHeaderMatched": {"const": true},
+        "sessionIdSha256": {"$ref": "#/$defs/sha256"},
+        "initializeResponseSha256": {"$ref": "#/$defs/sha256"},
+        "toolResponseSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "httpStatus", "sourceTraceId", "auditTraceId", "rowMatched", "toolNameMatched",
+        "successOutcomeMatched", "responseSha256", "attempt"
+      ],
+      "properties": {
+        "httpStatus": {"const": 200},
+        "sourceTraceId": {"$ref": "#/$defs/traceId"},
+        "auditTraceId": {"$ref": "#/$defs/traceId"},
+        "rowMatched": {"const": true},
+        "toolNameMatched": {"const": true},
+        "successOutcomeMatched": {"const": true},
+        "responseSha256": {"$ref": "#/$defs/sha256"},
+        "attempt": {"type": "integer", "minimum": 1, "maximum": 10}
+      }
+    },
+    "rejection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "httpStatus", "startedAtEpochSeconds", "completedAtEpochSeconds", "traceId",
+        "traceHeaderMatched", "wwwAuthenticateBearer",
+        "noSessionIssued", "responseSha256"
+      ],
+      "properties": {
+        "httpStatus": {"const": 401},
+        "startedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "completedAtEpochSeconds": {"type": "integer", "minimum": 1},
+        "traceId": {"$ref": "#/$defs/traceId"},
+        "traceHeaderMatched": {"const": true},
+        "wwwAuthenticateBearer": {"const": true},
+        "noSessionIssued": {"const": true},
+        "responseSha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

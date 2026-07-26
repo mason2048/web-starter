@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -29,6 +30,11 @@ import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.core.trace.TraceContext;
 import dev.webstarter.system.audit.AuditLogRecorder;
 import dev.webstarter.system.audit.LoginAuditEvent;
+import dev.webstarter.security.login.LoginAttemptLimiter;
+import dev.webstarter.security.login.LoginRateLimitDecision;
+import dev.webstarter.security.login.LoginRateLimitExceededException;
+import dev.webstarter.security.login.LoginRateLimitUnavailableException;
+import dev.webstarter.security.session.WebSessionManagementService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -38,6 +44,7 @@ public class AuthController {
     private final SecurityContextRepository securityContextRepository;
     private final CallerContext callerContext;
     private final AuditLogRecorder auditLogRecorder;
+    private final LoginAttemptLimiter loginAttemptLimiter;
     private final Clock clock;
 
     @Autowired
@@ -45,9 +52,20 @@ public class AuthController {
             AuthenticationManager authenticationManager,
             SecurityContextRepository securityContextRepository,
             CallerContext callerContext,
+            AuditLogRecorder auditLogRecorder,
+            ObjectProvider<LoginAttemptLimiter> loginAttemptLimiter) {
+        this(authenticationManager, securityContextRepository, callerContext, auditLogRecorder,
+                loginAttemptLimiter.getIfAvailable(LoginAttemptLimiter::none),
+                Clock.systemUTC());
+    }
+
+    AuthController(
+            AuthenticationManager authenticationManager,
+            SecurityContextRepository securityContextRepository,
+            CallerContext callerContext,
             AuditLogRecorder auditLogRecorder) {
         this(authenticationManager, securityContextRepository, callerContext, auditLogRecorder,
-                Clock.systemUTC());
+                LoginAttemptLimiter.none(), Clock.systemUTC());
     }
 
     AuthController(
@@ -56,10 +74,22 @@ public class AuthController {
             CallerContext callerContext,
             AuditLogRecorder auditLogRecorder,
             Clock clock) {
+        this(authenticationManager, securityContextRepository, callerContext, auditLogRecorder,
+                LoginAttemptLimiter.none(), clock);
+    }
+
+    AuthController(
+            AuthenticationManager authenticationManager,
+            SecurityContextRepository securityContextRepository,
+            CallerContext callerContext,
+            AuditLogRecorder auditLogRecorder,
+            LoginAttemptLimiter loginAttemptLimiter,
+            Clock clock) {
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.callerContext = callerContext;
         this.auditLogRecorder = auditLogRecorder;
+        this.loginAttemptLimiter = loginAttemptLimiter;
         this.clock = clock;
     }
 
@@ -68,23 +98,63 @@ public class AuthController {
             @Valid @RequestBody LoginRequest login,
             HttpServletRequest request,
             HttpServletResponse response) {
+        String username = login.username().trim();
+        LoginRateLimitDecision initialDecision;
+        try {
+            initialDecision = loginAttemptLimiter.check(username, request.getRemoteAddr());
+        }
+        catch (LoginRateLimitUnavailableException exception) {
+            recordLogin(username, "FAILURE", "RATE_LIMIT_UNAVAILABLE", request);
+            throw exception;
+        }
+        if (!initialDecision.allowed()) {
+            recordLogin(username, "FAILURE", "RATE_LIMITED", request);
+            throw new LoginRateLimitExceededException(initialDecision.retryAfterSeconds());
+        }
         try {
             Authentication authentication = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
-                            login.username().trim(), login.password()));
-            request.getSession(true);
+                            username, login.password()));
+            try {
+                loginAttemptLimiter.recordSuccess(username, request.getRemoteAddr());
+            }
+            catch (LoginRateLimitUnavailableException exception) {
+                SecurityContextHolder.clearContext();
+                recordLogin(username, "FAILURE", "RATE_LIMIT_UNAVAILABLE", request);
+                throw exception;
+            }
+            var session = request.getSession(true);
             request.changeSessionId();
+            session.setAttribute(
+                    WebSessionManagementService.CLIENT_IP_ATTRIBUTE,
+                    safeAttribute(request.getRemoteAddr(), 128));
+            session.setAttribute(
+                    WebSessionManagementService.USER_AGENT_ATTRIBUTE,
+                    safeAttribute(request.getHeader("User-Agent"), 512));
             var context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
             securityContextRepository.saveContext(context, request, response);
             CurrentCaller caller = callerContext.required();
-            recordLogin(login.username(), "SUCCESS", null, request);
+            recordLogin(username, "SUCCESS", null, request);
             return ApiResponse.success(caller);
         }
         catch (AuthenticationException ex) {
             SecurityContextHolder.clearContext();
-            recordLogin(login.username(), "FAILURE", "INVALID_CREDENTIALS", request);
+            LoginRateLimitDecision failureDecision;
+            try {
+                failureDecision = loginAttemptLimiter.recordFailure(
+                        username, request.getRemoteAddr());
+            }
+            catch (LoginRateLimitUnavailableException limiterFailure) {
+                recordLogin(username, "FAILURE", "RATE_LIMIT_UNAVAILABLE", request);
+                throw limiterFailure;
+            }
+            String reason = failureDecision.allowed() ? "INVALID_CREDENTIALS" : "RATE_LIMITED";
+            recordLogin(username, "FAILURE", reason, request);
+            if (!failureDecision.allowed()) {
+                throw new LoginRateLimitExceededException(failureDecision.retryAfterSeconds());
+            }
             throw ex;
         }
     }
@@ -119,5 +189,12 @@ public class AuthController {
     }
 
     public record CsrfResponse(String headerName, String parameterName, String token) {
+    }
+
+    private static String safeAttribute(String value, int maximumLength) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= maximumLength ? value : value.substring(0, maximumLength);
     }
 }

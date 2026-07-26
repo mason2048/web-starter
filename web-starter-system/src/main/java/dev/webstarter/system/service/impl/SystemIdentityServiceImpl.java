@@ -87,6 +87,7 @@ public class SystemIdentityServiceImpl implements SystemIdentityService {
                 user.getDisplayName(),
                 user.getPasswordHash(),
                 user.getStatus(),
+                user.getSecurityEpoch() == null ? 0 : user.getSecurityEpoch(),
                 roles,
                 permissions,
                 new LinkedHashSet<>(menuMapper.selectVisibleIdsByUserId(user.getId()))

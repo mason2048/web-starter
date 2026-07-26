@@ -16,6 +16,8 @@ public class SysMcpCallLog extends AbstractSystemEntity {
     private Long durationMs;
     private String ipAddress;
     private String errorCode;
+    private String idempotencyKeyHash;
+    private Boolean replayed;
     private String traceId;
 
     public String getActorType() { return actorType; }
@@ -40,6 +42,10 @@ public class SysMcpCallLog extends AbstractSystemEntity {
     public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
     public String getErrorCode() { return errorCode; }
     public void setErrorCode(String errorCode) { this.errorCode = errorCode; }
+    public String getIdempotencyKeyHash() { return idempotencyKeyHash; }
+    public void setIdempotencyKeyHash(String idempotencyKeyHash) { this.idempotencyKeyHash = idempotencyKeyHash; }
+    public Boolean getReplayed() { return replayed; }
+    public void setReplayed(Boolean replayed) { this.replayed = replayed; }
     public String getTraceId() { return traceId; }
     public void setTraceId(String traceId) { this.traceId = traceId; }
 }

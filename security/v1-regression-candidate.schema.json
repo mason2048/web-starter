@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schema/v1-regression-candidate.schema.json",
+  "title": "Web Starter V1 immutable regression candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "release", "images"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tag", "version", "gitCommit"],
+      "properties": {
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "gitCommit": {"type": "string", "pattern": "^[0-9a-f]{40}(?:[0-9a-f]{24})?$"}
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app", "nginx", "mysql", "redis"],
+      "properties": {
+        "app": {"$ref": "#/$defs/image"},
+        "nginx": {"$ref": "#/$defs/image"},
+        "mysql": {"$ref": "#/$defs/image"},
+        "redis": {"$ref": "#/$defs/image"}
+      }
+    }
+  },
+  "$defs": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "digest"],
+      "properties": {
+        "reference": {"type": "string", "pattern": "^[^@\\s]+$"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

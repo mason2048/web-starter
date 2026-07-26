@@ -42,10 +42,14 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
   },
+  build: {
+    manifest: true,
+  },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     css: true,
   },
 })

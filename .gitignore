@@ -43,3 +43,7 @@ application-local.yaml
 playwright-report/
 test-results/
 /screenshots/
+
+# Release workflow scratch data (may contain raw scanner context)
+/artifacts/
+/.release-tools/

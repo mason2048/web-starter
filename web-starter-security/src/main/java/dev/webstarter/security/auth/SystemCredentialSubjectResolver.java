@@ -23,39 +23,43 @@ public final class SystemCredentialSubjectResolver implements CredentialSubjectR
     }
 
     @Override
-    public Optional<CurrentCaller> resolveUser(Long userId) {
+    public Optional<ResolvedCredentialSubject> resolveUser(Long userId) {
         return identityService.loadById(userId)
                 .filter(identity -> identity.enabled())
-                .map(identity -> new CurrentCaller(
-                        CallerType.USER,
-                        identity.userId().toString(),
-                        identity.username(),
-                        identity.displayName(),
-                        null,
-                        null,
-                        Set.of(),
-                        identity.permissions(),
-                        identity.menuIds(),
-                        TraceContext.traceId()));
+                .map(identity -> new ResolvedCredentialSubject(
+                        new CurrentCaller(
+                                CallerType.USER,
+                                identity.userId().toString(),
+                                identity.username(),
+                                identity.displayName(),
+                                null,
+                                null,
+                                Set.of(),
+                                identity.permissions(),
+                                identity.menuIds(),
+                                TraceContext.traceId()),
+                        identity.securityEpoch()));
     }
 
     @Override
-    public Optional<CurrentCaller> resolveServiceAccount(Long serviceAccountId) {
+    public Optional<ResolvedCredentialSubject> resolveServiceAccount(Long serviceAccountId) {
         var account = serviceAccountMapper.findById(serviceAccountId);
         if (account == null || !account.enabled()) {
             return Optional.empty();
         }
         var rbac = identityService.resolveRbacByRoleIds(ScopeCodec.decodeLongs(account.roleIds()));
-        return Optional.of(new CurrentCaller(
-                CallerType.SERVICE_ACCOUNT,
-                account.id().toString(),
-                account.code(),
-                account.displayName(),
-                null,
-                null,
-                Set.of(),
-                rbac.permissions(),
-                rbac.menuIds(),
-                TraceContext.traceId()));
+        return Optional.of(new ResolvedCredentialSubject(
+                new CurrentCaller(
+                        CallerType.SERVICE_ACCOUNT,
+                        account.id().toString(),
+                        account.code(),
+                        account.displayName(),
+                        null,
+                        null,
+                        Set.of(),
+                        rbac.permissions(),
+                        rbac.menuIds(),
+                        TraceContext.traceId()),
+                account.securityEpoch()));
     }
 }

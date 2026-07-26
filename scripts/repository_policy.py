@@ -285,6 +285,15 @@ def _is_placeholder_or_reference(value: str) -> bool:
     lowered = value.casefold().strip()
     if lowered in {"false", "none", "null", "off", "true", "unset"}:
         return True
+    # Line-oriented config scanning must not mistake a JSON/YAML mapping or
+    # sequence opener for a literal credential. Nested scalar assignments are
+    # still scanned on their own lines. JSON Schema references are structural
+    # metadata too, but keep this allowance exact rather than accepting every
+    # object-shaped value.
+    if value in {"{", "[", "{}", "[]"}:
+        return True
+    if re.fullmatch(r'\{\s*"\$ref"\s*:\s*"[^"\r\n]+"\s*\}', value):
+        return True
     if value.startswith(("$", "{{", "<")):
         return True
     if value.endswith(">") and value.startswith("<"):

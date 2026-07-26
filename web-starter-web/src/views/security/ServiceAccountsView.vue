@@ -136,9 +136,36 @@
           签发服务令牌
         </el-button>
       </div>
+      <el-alert
+        class="token-secret-notice"
+        type="info"
+        title="列表只返回令牌标识；完整明文仅在签发成功时展示一次，关闭后不能再次读取。"
+        :closable="false"
+        show-icon
+      />
       <RequestError :message="tokenError" />
+      <div class="token-filter-row">
+        <el-select
+          v-model="tokenCredentialFilter"
+          placeholder="全部凭据"
+          data-testid="service-token-filter"
+        >
+          <el-option
+            v-for="option in credentialLifecycleOptions"
+            :key="option.value || 'ALL'"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+        <span>筛选仅作用于当前服务账号已加载的令牌。</span>
+      </div>
       <div class="table-panel token-table">
-        <el-table v-loading="tokensLoading" :data="accountTokens" row-key="id" empty-text="暂无服务账号令牌">
+        <el-table
+          v-loading="tokensLoading"
+          :data="filteredAccountTokens"
+          row-key="id"
+          empty-text="没有符合筛选条件的服务账号令牌"
+        >
           <el-table-column prop="name" label="名称" min-width="150" />
           <el-table-column label="令牌标识" min-width="145">
             <template #default="{ row }"><span class="mono">{{ row.tokenHint }}</span></template>
@@ -148,8 +175,16 @@
           </el-table-column>
           <el-table-column label="状态" width="96">
             <template #default="{ row }">
-              <el-tag :type="tokenState(row).type" size="small">{{ tokenState(row).label }}</el-tag>
+              <el-tag :type="credentialStatus(row).type" size="small">{{ credentialStatus(row).label }}</el-tag>
             </template>
+          </el-table-column>
+          <el-table-column label="IP 限制" min-width="160" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.allowedIpCidrs?.length ? row.allowedIpCidrs.join(', ') : '不限' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="安全提示" min-width="175" show-overflow-tooltip>
+            <template #default="{ row }">{{ credentialNotices(row).join('、') || '—' }}</template>
           </el-table-column>
           <el-table-column label="最后使用" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.lastUsedAt) }}</template>
@@ -159,7 +194,12 @@
           </el-table-column>
           <el-table-column label="操作" width="84" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="tokenState(row).key === 'ACTIVE'" link type="danger" @click="confirmRevokeToken(row)">
+              <el-button
+                v-if="credentialStatus(row).key === 'ACTIVE'"
+                link
+                type="danger"
+                @click="confirmRevokeToken(row)"
+              >
                 吊销
               </el-button>
               <span v-else class="text-muted">—</span>
@@ -201,9 +241,14 @@ import TokenIssueDialog from '@/components/TokenIssueDialog.vue'
 import { usePermission } from '@/composables/usePermission'
 import { useAuthStore } from '@/stores/auth'
 import type { IssueTokenPayload, RoleRecord, ServiceAccount, TokenSummary } from '@/types/models'
+import {
+  credentialLifecycleOptions,
+  credentialNotices,
+  credentialStatus,
+  matchesCredentialLifecycle,
+  type CredentialLifecycleFilter,
+} from '@/utils/credentials'
 import { displayError, formatDateTime } from '@/utils/format'
-
-type TokenStatusKey = 'ACTIVE' | 'EXPIRED' | 'REVOKED'
 type EnabledFilter = '' | 'ENABLED' | 'DISABLED'
 
 interface AccountForm {
@@ -237,6 +282,7 @@ const rawToken = ref('')
 const editingId = ref<string | null>(null)
 const keyword = ref('')
 const enabledFilter = ref<EnabledFilter>('')
+const tokenCredentialFilter = ref<CredentialLifecycleFilter>('')
 const accountFormRef = ref<FormInstance>()
 const accountForm = reactive<AccountForm>({ code: '', displayName: '', description: '', enabled: true, roleIds: [] })
 
@@ -249,6 +295,9 @@ const filteredAccounts = computed(() => {
     return matchesSearch && matchesStatus
   })
 })
+const filteredAccountTokens = computed(() =>
+  accountTokens.value.filter((token) => matchesCredentialLifecycle(token, tokenCredentialFilter.value)),
+)
 
 const accountRules: FormRules<AccountForm> = {
   code: [
@@ -269,18 +318,6 @@ const accountRules: FormRules<AccountForm> = {
       trigger: 'change',
     },
   ],
-}
-
-function tokenState(token: TokenSummary): {
-  key: TokenStatusKey
-  label: string
-  type: 'success' | 'warning' | 'danger'
-} {
-  if (token.revokedAt) return { key: 'REVOKED', label: '已吊销', type: 'danger' }
-  if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
-    return { key: 'EXPIRED', label: '已过期', type: 'warning' }
-  }
-  return { key: 'ACTIVE', label: '有效', type: 'success' }
 }
 
 function roleSummary(roleIds: string[]): string {
@@ -395,6 +432,7 @@ async function confirmDisable(account: ServiceAccount): Promise<void> {
 async function openTokens(account: ServiceAccount): Promise<void> {
   selectedAccount.value = account
   accountTokens.value = []
+  tokenCredentialFilter.value = ''
   tokenError.value = ''
   tokenDrawerOpen.value = true
   await loadAccountTokens()
@@ -493,5 +531,33 @@ onMounted(() => {
 
 .token-table {
   overflow-x: auto;
+}
+
+.token-secret-notice {
+  margin-bottom: 16px;
+}
+
+.token-filter-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: var(--ws-text-secondary);
+  font-size: 12px;
+  align-items: center;
+}
+
+.token-filter-row .el-select {
+  width: 172px;
+}
+
+@media (max-width: 680px) {
+  .token-filter-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .token-filter-row .el-select {
+    width: 100%;
+  }
 }
 </style>

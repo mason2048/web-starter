@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webstarter.dev/schemas/v2-generator-acceptance.schema.json",
+  "title": "V2 AC08-15 generator acceptance raw evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "acceptanceIds",
+    "status",
+    "observedAt",
+    "candidate",
+    "tooling",
+    "derivedProject",
+    "generatedModule",
+    "stages",
+    "cleanup",
+    "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "acceptanceIds": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        {"const": "V2-AC-08"},
+        {"const": "V2-AC-09"},
+        {"const": "V2-AC-10"},
+        {"const": "V2-AC-11"},
+        {"const": "V2-AC-12"},
+        {"const": "V2-AC-13"},
+        {"const": "V2-AC-14"},
+        {"const": "V2-AC-15"}
+      ],
+      "items": false
+    },
+    "status": {"const": "PASS"},
+    "observedAt": {"type": "string", "format": "date-time", "maxLength": 64},
+    "candidate": {"$ref": "#/$defs/candidate"},
+    "tooling": {"$ref": "#/$defs/tooling"},
+    "derivedProject": {"$ref": "#/$defs/derivedProject"},
+    "generatedModule": {"$ref": "#/$defs/generatedModule"},
+    "stages": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"name": {"const": "project"}}}]},
+        {"allOf": [{"$ref": "#/$defs/stage"}, {"properties": {"name": {"const": "module"}}}]}
+      ],
+      "items": false
+    },
+    "cleanup": {"$ref": "#/$defs/cleanup"},
+    "evidencePolicy": {"$ref": "#/$defs/evidencePolicy"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "imageId": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "imageReference": {
+      "type": "string",
+      "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+      "maxLength": 256
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$",
+      "maxLength": 96
+    },
+    "sourceBlob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gitBlob", "sha256"],
+      "properties": {
+        "gitBlob": {"$ref": "#/$defs/gitObject"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit", "tree", "tag", "tagObject", "mavenVersion",
+        "frontendVersion", "cleanWorktree", "sourceBlobs"
+      ],
+      "properties": {
+        "commit": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "tag": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"},
+        "tagObject": {"$ref": "#/$defs/gitObject"},
+        "mavenVersion": {"$ref": "#/$defs/version"},
+        "frontendVersion": {"$ref": "#/$defs/version"},
+        "cleanWorktree": {"const": true},
+        "sourceBlobs": {
+          "type": "object",
+          "minProperties": 20,
+          "additionalProperties": {"$ref": "#/$defs/sourceBlob"},
+          "propertyNames": {"pattern": "^[A-Za-z0-9._/-]+$"}
+        }
+      }
+    },
+    "tooling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producerPath", "validatorPath", "schemaPath", "sourceCount"],
+      "properties": {
+        "producerPath": {"const": "scripts/rehearse_generator_acceptance.py"},
+        "validatorPath": {"const": "scripts/validate_generator_acceptance_evidence.py"},
+        "schemaPath": {"const": "security/v2-generator-acceptance.schema.json"},
+        "sourceCount": {"type": "integer", "minimum": 20, "maximum": 100}
+      }
+    },
+    "derivedProject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "productName", "groupId", "database", "environmentPrefix", "forbiddenTermsSha256"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,49}$"},
+        "productName": {"type": "string", "minLength": 1, "maxLength": 120},
+        "groupId": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"},
+        "database": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,62}$"},
+        "environmentPrefix": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,62}_$"},
+        "forbiddenTermsSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "generatedModule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "label", "migrationVersion", "permissionIdBase", "menuId", "withMcp"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z][a-z0-9]{1,30}$"},
+        "label": {"type": "string", "minLength": 1, "maxLength": 80},
+        "migrationVersion": {"type": "string", "pattern": "^[1-9][0-9]{0,17}$"},
+        "permissionIdBase": {"type": "string", "pattern": "^[1-9][0-9]{0,17}$"},
+        "menuId": {"type": "string", "pattern": "^[1-9][0-9]{0,17}$"},
+        "withMcp": {"const": true}
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "imageId"],
+      "properties": {
+        "reference": {"$ref": "#/$defs/imageReference"},
+        "imageId": {"$ref": "#/$defs/imageId"}
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "version", "commit", "tree", "buildContextSha256", "composeProject",
+        "expectedModules", "expectedMcpModules", "images", "artifacts", "status"
+      ],
+      "properties": {
+        "name": {"enum": ["project", "module"]},
+        "version": {"$ref": "#/$defs/version"},
+        "commit": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"},
+        "buildContextSha256": {"$ref": "#/$defs/sha256"},
+        "composeProject": {"type": "string", "pattern": "^wsgen-[a-z0-9]{12}-(?:project|module)$"},
+        "expectedModules": {"type": "string", "pattern": "^(?:-|[a-z][a-z0-9]{1,30})$"},
+        "expectedMcpModules": {"type": "string", "pattern": "^(?:-|[a-z][a-z0-9]{1,30})$"},
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["app", "nginx"],
+          "properties": {
+            "app": {"$ref": "#/$defs/image"},
+            "nginx": {"$ref": "#/$defs/image"}
+          }
+        },
+        "artifacts": {
+          "type": "object",
+          "minProperties": 8,
+          "maxProperties": 9,
+          "additionalProperties": {"$ref": "#/$defs/sha256"},
+          "propertyNames": {"pattern": "^[a-z0-9][a-z0-9.-]+\\.json$"}
+        },
+        "status": {"const": "PASS"}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "composeProjectsRemoved", "registryContainerRemoved", "generatedImageReferencesRemoved",
+        "temporaryProjectTreeRemoved", "status"
+      ],
+      "properties": {
+        "composeProjectsRemoved": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {"type": "string", "pattern": "^wsgen-[a-z0-9]{12}-(?:project|module)$"},
+          "uniqueItems": true
+        },
+        "registryContainerRemoved": {"type": "string", "pattern": "^web-starter-generator-registry-[a-z0-9]{12}$"},
+        "generatedImageReferencesRemoved": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {"$ref": "#/$defs/imageReference"}, "uniqueItems": true
+        },
+        "temporaryProjectTreeRemoved": {"const": true},
+        "status": {"const": "PASS"}
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outsideRepository", "directoryMode", "fileMode", "onlyExpectedFiles", "rawSecretsPersisted"],
+      "properties": {
+        "outsideRepository": {"const": true},
+        "directoryMode": {"const": "0700"},
+        "fileMode": {"const": "0600"},
+        "onlyExpectedFiles": {"const": true},
+        "rawSecretsPersisted": {"const": false}
+      }
+    }
+  }
+}

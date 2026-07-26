@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import dev.webstarter.core.security.CurrentCaller;
 import dev.webstarter.security.auth.CallerPrincipal;
 import dev.webstarter.security.auth.CredentialSubjectResolver;
+import dev.webstarter.security.auth.ResolvedCredentialSubject;
 import dev.webstarter.security.config.WebStarterSecurityProperties;
 
 public final class WebStarterJwtCustomizer implements OAuth2TokenCustomizer<JwtEncodingContext> {
@@ -34,7 +35,8 @@ public final class WebStarterJwtCustomizer implements OAuth2TokenCustomizer<JwtE
         if (!OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
             return;
         }
-        CurrentCaller caller = resolveCaller(context);
+        ResolvedCredentialSubject subject = resolveCaller(context);
+        CurrentCaller caller = subject.caller();
         context.getClaims()
                 .id(UUID.randomUUID().toString())
                 // Keep claim metadata on stable public collection types so the strict
@@ -42,13 +44,21 @@ public final class WebStarterJwtCustomizer implements OAuth2TokenCustomizer<JwtE
                 .audience(new ArrayList<>(List.of(properties.resourceAudience())))
                 .subject(caller.username())
                 .claim("uid", caller.subjectId())
+                // Keep the persisted token-claims map compatible with the strict
+                // Jackson 3 polymorphic type validator used by the JDBC service.
+                .claim("sepoch", Long.toString(subject.securityEpoch()))
                 .claim("subject_type", caller.callerType().name())
                 .claim("client_id", context.getRegisteredClient().getClientId());
     }
 
-    private CurrentCaller resolveCaller(JwtEncodingContext context) {
+    private ResolvedCredentialSubject resolveCaller(JwtEncodingContext context) {
         if (context.getPrincipal().getPrincipal() instanceof CallerPrincipal principal) {
-            return principal.caller();
+            ResolvedCredentialSubject live = resolveLive(principal.caller())
+                    .orElseThrow(WebStarterJwtCustomizer::subjectUnavailable);
+            if (live.securityEpoch() != principal.securityEpoch()) {
+                throw subjectUnavailable();
+            }
+            return live;
         }
         if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
             Long accountId = context.getRegisteredClient().getClientSettings()
@@ -64,13 +74,60 @@ public final class WebStarterJwtCustomizer implements OAuth2TokenCustomizer<JwtE
                     .getAttribute(HashingOAuth2AuthorizationService.SUBJECT_ID_ATTRIBUTE);
             String subjectType = context.getAuthorization()
                     .getAttribute(HashingOAuth2AuthorizationService.SUBJECT_TYPE_ATTRIBUTE);
+            Object storedEpoch = context.getAuthorization()
+                    .getAttribute(HashingOAuth2AuthorizationService.SUBJECT_SECURITY_EPOCH_ATTRIBUTE);
             if (subjectId != null && "USER".equals(subjectType)) {
-                return subjectResolver.resolveUser(Long.valueOf(subjectId))
-                        .orElseThrow(WebStarterJwtCustomizer::subjectUnavailable);
+                return requireMatchingEpoch(
+                        subjectResolver.resolveUser(Long.valueOf(subjectId))
+                                .orElseThrow(WebStarterJwtCustomizer::subjectUnavailable),
+                        storedEpoch);
             }
             if (subjectId != null && "SERVICE_ACCOUNT".equals(subjectType)) {
-                return subjectResolver.resolveServiceAccount(Long.valueOf(subjectId))
-                        .orElseThrow(WebStarterJwtCustomizer::subjectUnavailable);
+                return requireMatchingEpoch(
+                        subjectResolver.resolveServiceAccount(Long.valueOf(subjectId))
+                                .orElseThrow(WebStarterJwtCustomizer::subjectUnavailable),
+                        storedEpoch);
+            }
+        }
+        throw subjectUnavailable();
+    }
+
+    private java.util.Optional<ResolvedCredentialSubject> resolveLive(CurrentCaller caller) {
+        try {
+            Long id = Long.valueOf(caller.subjectId());
+            return switch (caller.callerType()) {
+                case USER -> subjectResolver.resolveUser(id);
+                case SERVICE_ACCOUNT -> subjectResolver.resolveServiceAccount(id);
+            };
+        }
+        catch (NumberFormatException exception) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    private static ResolvedCredentialSubject requireMatchingEpoch(
+            ResolvedCredentialSubject live,
+            Object storedEpoch) {
+        long expected = parseStoredEpoch(storedEpoch);
+        if (live.securityEpoch() != expected) {
+            throw subjectUnavailable();
+        }
+        return live;
+    }
+
+    private static long parseStoredEpoch(Object storedEpoch) {
+        if (storedEpoch == null) {
+            return 0;
+        }
+        if (storedEpoch instanceof Number number) {
+            return number.longValue();
+        }
+        if (storedEpoch instanceof String value) {
+            try {
+                return Long.parseLong(value);
+            }
+            catch (NumberFormatException ignored) {
+                // Converted to the protocol-safe invalid_grant response below.
             }
         }
         throw subjectUnavailable();

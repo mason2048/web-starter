@@ -12,5 +12,7 @@ public interface UserService {
     UserResponse create(UserCreateRequest request);
     UserResponse update(Long id, UserUpdateRequest request);
     void resetPassword(Long id, UserPasswordResetRequest request);
+    void changeOwnPassword(Long id, String currentPassword, String newPassword);
+    void securityLogout(Long id);
     void remove(Long id);
 }

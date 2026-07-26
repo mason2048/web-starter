@@ -6,7 +6,7 @@
       </template>
     </PageHeader>
 
-    <RequestError :message="errorMessage" :trace-id="errorTraceId" />
+    <RequestError :failure="failure" />
 
     <section class="project-summary" aria-label="项目统计">
       <div><span>项目总数</span><strong>{{ total }}</strong></div>
@@ -24,7 +24,14 @@
         @keyup.enter="search"
         @clear="search"
       />
-      <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 180px" @change="search">
+      <el-select
+        v-model="query.status"
+        aria-label="按项目状态筛选"
+        placeholder="全部状态"
+        clearable
+        style="width: 180px"
+        @change="search"
+      >
         <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
       </el-select>
       <el-button :icon="Refresh" :loading="loading" @click="loadProjects">刷新</el-button>
@@ -55,27 +62,35 @@
 
     <div class="pagination-row">
       <span>共 {{ total }} 条</span>
+      <el-select
+        v-model="query.size"
+        aria-label="每页显示条数"
+        class="pagination-size-select"
+        style="width: 112px"
+        @change="handleSizeChange"
+      >
+        <el-option v-for="size in [10, 20, 50]" :key="size" :label="`${size}条/页`" :value="size" />
+      </el-select>
       <el-pagination
         v-model:current-page="query.page"
-        v-model:page-size="query.size"
         background
-        layout="sizes, prev, pager, next, jumper"
-        :page-sizes="[10, 20, 50]"
+        layout="prev, pager, next, jumper"
+        :page-size="query.size"
         :total="total"
         @current-change="loadProjects"
-        @size-change="handleSizeChange"
       />
     </div>
 
-    <el-drawer v-model="drawerOpen" :title="drawerTitle" size="382px" :modal="false" destroy-on-close>
-      <RequestError :message="drawerError" />
+    <el-drawer v-model="drawerOpen" :title="drawerTitle" size="382px" :modal="false">
+      <RequestError :failure="drawerFailure" />
       <el-form
         ref="formRef"
         class="drawer-form"
         :model="form"
         :rules="rules"
         label-position="top"
-        :disabled="drawerMode === 'view'"
+        :disabled="drawerMode === 'view' || detailLoading"
+        v-loading="detailLoading"
       >
         <el-form-item label="项目名称" prop="name">
           <el-input v-model.trim="form.name" maxlength="120" show-word-limit placeholder="请输入项目名称" />
@@ -84,7 +99,14 @@
           <el-input v-model.trim="form.code" maxlength="64" show-word-limit placeholder="请输入项目编码" />
         </el-form-item>
         <el-form-item label="负责人" prop="ownerId">
-          <el-select v-model="form.ownerId" placeholder="请选择负责人" filterable clearable :loading="ownersLoading">
+          <el-select
+            v-model="form.ownerId"
+            aria-label="项目负责人"
+            placeholder="请选择负责人"
+            filterable
+            clearable
+            :loading="ownersLoading"
+          >
             <el-option
               v-for="owner in owners"
               :key="owner.id"
@@ -94,7 +116,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="form.status" placeholder="请选择状态">
+          <el-select v-model="form.status" aria-label="项目状态" placeholder="请选择状态">
             <el-option v-for="option in statusOptions" :key="option.value" :label="option.label" :value="option.value" />
           </el-select>
         </el-form-item>
@@ -112,7 +134,15 @@
       <template #footer>
         <div class="drawer-footer">
           <el-button @click="drawerOpen = false">{{ drawerMode === 'view' ? '关闭' : '取消' }}</el-button>
-          <el-button v-if="drawerMode !== 'view'" type="primary" :loading="saving" @click="saveProject">保存</el-button>
+          <el-button
+            v-if="drawerMode !== 'view'"
+            type="primary"
+            :disabled="detailLoading"
+            :loading="saving"
+            @click="saveProject"
+          >
+            保存
+          </el-button>
         </div>
       </template>
     </el-drawer>
@@ -120,7 +150,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { createProject, getProject, listProjectOwners, listProjects, removeProject, updateProject } from '@/api/projects'
@@ -128,13 +159,16 @@ import PageHeader from '@/components/PageHeader.vue'
 import RequestError from '@/components/RequestError.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { usePermission } from '@/composables/usePermission'
-import { ApiError } from '@/types/api'
+import { useStandardCrudPage } from '@/crud/useStandardCrudPage'
+import { toRequestFailure, type RequestFailure } from '@/api/requestFailure'
 import type { Project, ProjectOwner, ProjectStatus } from '@/types/models'
-import { displayError, formatDateTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
 import { isValidProjectCode } from '@/utils/validators'
 
 type DrawerMode = 'create' | 'edit' | 'view'
 const { can } = usePermission()
+const route = useRoute()
+const router = useRouter()
 
 const statusOptions: Array<{ label: string; value: ProjectStatus }> = [
   { label: '规划中', value: 'PLANNING' },
@@ -142,22 +176,34 @@ const statusOptions: Array<{ label: string; value: ProjectStatus }> = [
   { label: '已归档', value: 'ARCHIVED' },
 ]
 
-const projects = ref<Project[]>([])
 const owners = ref<ProjectOwner[]>([])
-const total = ref(0)
-const loading = ref(false)
 const ownersLoading = ref(false)
+const detailLoading = ref(false)
 const saving = ref(false)
-const errorMessage = ref('')
-const errorTraceId = ref('')
-const drawerError = ref('')
+const drawerFailure = ref<RequestFailure | null>(null)
 const drawerOpen = ref(false)
 const drawerMode = ref<DrawerMode>('create')
 const selectedId = ref<Project['id'] | null>(null)
 const selectedVersion = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 
-const query = reactive({ page: 1, size: 10, keyword: '', status: '' as ProjectStatus | '' })
+const crudPage = useStandardCrudPage<Project>({
+  route,
+  router,
+  statuses: statusOptions.map((option) => option.value),
+  fetchPage: listProjects,
+})
+const {
+  query,
+  records: projects,
+  total,
+  loading,
+  failure,
+  load: loadProjects,
+  search,
+  handleSizeChange,
+  captureFailure: setPageError,
+} = crudPage
 const form = reactive<{
   name: string
   code: string
@@ -199,7 +245,7 @@ function resetForm(): void {
   Object.assign(form, { name: '', code: '', ownerId: undefined, status: 'IN_PROGRESS', description: '' })
   selectedId.value = null
   selectedVersion.value = null
-  drawerError.value = ''
+  drawerFailure.value = null
   formRef.value?.clearValidate()
 }
 
@@ -215,55 +261,16 @@ function assignProject(project: Project): void {
   })
 }
 
-function setPageError(error: unknown): void {
-  errorMessage.value = displayError(error)
-  errorTraceId.value = error instanceof ApiError ? error.traceId ?? '' : ''
-}
-
-async function loadProjects(): Promise<void> {
-  loading.value = true
-  errorMessage.value = ''
-  errorTraceId.value = ''
-  try {
-    const data = await listProjects({
-      page: query.page,
-      size: query.size,
-      keyword: query.keyword || undefined,
-      status: query.status || undefined,
-    })
-    projects.value = data.records
-    total.value = data.total
-    query.page = data.page || query.page
-    query.size = data.size || query.size
-  } catch (error: unknown) {
-    projects.value = []
-    total.value = 0
-    setPageError(error)
-  } finally {
-    loading.value = false
-  }
-}
-
 async function loadOwners(): Promise<void> {
   ownersLoading.value = true
   try {
     owners.value = await listProjectOwners()
   } catch (error: unknown) {
     owners.value = []
-    drawerError.value = `负责人列表加载失败：${displayError(error)}`
+    drawerFailure.value = toRequestFailure(error)
   } finally {
     ownersLoading.value = false
   }
-}
-
-function search(): void {
-  query.page = 1
-  void loadProjects()
-}
-
-function handleSizeChange(): void {
-  query.page = 1
-  void loadProjects()
 }
 
 function openCreate(): void {
@@ -273,34 +280,44 @@ function openCreate(): void {
   void loadOwners()
 }
 
-function openView(project: Project): void {
+async function openView(project: Project): Promise<void> {
   drawerMode.value = 'view'
   resetForm()
   assignProject(project)
+  detailLoading.value = true
   drawerOpen.value = true
-  void loadProjectDetail(project.id)
+  try {
+    await loadProjectDetail(project.id)
+  } finally {
+    detailLoading.value = false
+  }
 }
 
-function openEdit(project: Project): void {
+async function openEdit(project: Project): Promise<void> {
   drawerMode.value = 'edit'
   resetForm()
   assignProject(project)
+  detailLoading.value = true
   drawerOpen.value = true
-  void Promise.all([loadProjectDetail(project.id), loadOwners()])
+  try {
+    await Promise.all([loadProjectDetail(project.id), loadOwners()])
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 async function loadProjectDetail(id: Project['id']): Promise<void> {
   try {
     assignProject(await getProject(id))
   } catch (error: unknown) {
-    drawerError.value = displayError(error)
+    drawerFailure.value = toRequestFailure(error)
   }
 }
 
 async function saveProject(): Promise<void> {
   if (!formRef.value || !(await formRef.value.validate().catch(() => false))) return
   saving.value = true
-  drawerError.value = ''
+  drawerFailure.value = null
   try {
     if (form.ownerId === undefined) return
     if (drawerMode.value === 'create') {
@@ -318,7 +335,7 @@ async function saveProject(): Promise<void> {
     drawerOpen.value = false
     await loadProjects()
   } catch (error: unknown) {
-    drawerError.value = displayError(error)
+    drawerFailure.value = toRequestFailure(error)
   } finally {
     saving.value = false
   }
@@ -342,7 +359,6 @@ async function confirmRemove(project: Project): Promise<void> {
   }
 }
 
-onMounted(loadProjects)
 </script>
 
 <style scoped>

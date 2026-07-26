@@ -7,9 +7,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Captures the live authenticated caller before CSRF/authorization may reject the request. */
+/** Captures the live caller and clears stale identity epochs before authorization runs. */
 public final class CallerSnapshotRequestFilter extends OncePerRequestFilter {
 
     public static final String REQUEST_ATTRIBUTE =
@@ -26,7 +28,20 @@ public final class CallerSnapshotRequestFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        callerContext.current().ifPresent(caller -> request.setAttribute(REQUEST_ATTRIBUTE, caller));
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        var caller = callerContext.current();
+        if (caller.isPresent()) {
+            request.setAttribute(REQUEST_ATTRIBUTE, caller.get());
+        }
+        else if (authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CallerPrincipal) {
+            SecurityContextHolder.clearContext();
+            HttpSession session = request.getSession(false);
+            if (session != null && !"/api/auth/logout".equals(request.getServletPath())) {
+                session.invalidate();
+            }
+        }
         filterChain.doFilter(request, response);
     }
 }

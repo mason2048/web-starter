@@ -14,23 +14,31 @@ public final class CallerAuthenticationToken extends AbstractAuthenticationToken
 
     private CallerAuthenticationToken(
             CurrentCaller caller,
+            long securityEpoch,
             Object credentials,
             Collection<? extends GrantedAuthority> authorities,
             boolean authenticated) {
         super(authorities);
-        this.principal = caller == null ? null : new WebStarterPrincipal(caller);
+        this.principal = caller == null ? null : new WebStarterPrincipal(caller, securityEpoch);
         this.credentials = credentials;
         super.setAuthenticated(authenticated);
     }
 
     public static CallerAuthenticationToken unauthenticated(String rawToken) {
-        return new CallerAuthenticationToken(null, rawToken, null, false);
+        return new CallerAuthenticationToken(null, 0, rawToken, null, false);
     }
 
     public static CallerAuthenticationToken authenticated(
             CurrentCaller caller,
             Collection<? extends GrantedAuthority> authorities) {
-        return new CallerAuthenticationToken(caller, null, authorities, true);
+        return authenticated(caller, 0, authorities);
+    }
+
+    public static CallerAuthenticationToken authenticated(
+            CurrentCaller caller,
+            long securityEpoch,
+            Collection<? extends GrantedAuthority> authorities) {
+        return new CallerAuthenticationToken(caller, securityEpoch, null, authorities, true);
     }
 
     @Override
