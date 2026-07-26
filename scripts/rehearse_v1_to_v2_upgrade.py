@@ -4204,6 +4204,8 @@ def _playwright_environment(runtime: RuntimeContext) -> dict[str, str]:
         "PNPM_HOME": runtime.runtime_root / "pnpm-home",
         "XDG_CONFIG_HOME": runtime.runtime_root / "xdg-config",
         "XDG_CACHE_HOME": runtime.runtime_root / "xdg-cache",
+        "TMPDIR": runtime.runtime_root / "playwright-tmp",
+        "NODE_COMPILE_CACHE": runtime.runtime_root / "node-compile-cache",
     }
     for path in roots.values():
         if not path.exists():
@@ -4739,10 +4741,28 @@ def _final_lifecycle_readback(
     token_files = manifest.get("tokenFiles", {})
     lifecycle_pat_file = Path(service_fixture["lifecyclePatFile"])
     service_token_file = Path(str(token_files["serviceToken"]))
+    pats_before = api.request("GET", api.private + "/api/security/personal-tokens", private=True)
+    lifecycle_pat_before = next((
+        item
+        for item in pats_before
+        if isinstance(item, dict)
+        and str(item.get("id")) == service_fixture["lifecyclePatId"]
+        and item.get("name") == service_fixture["lifecyclePatName"]
+    ), None) if isinstance(pats_before, list) else None
+    if not isinstance(lifecycle_pat_before, dict):
+        raise UpgradeRehearsalError(
+            "PERSONAL_CREDENTIAL_PRE_READBACK_MISSING",
+            "lifecycle personal credential was not present before revocation",
+        )
+    if lifecycle_pat_before.get("revokedAt") is not None:
+        raise UpgradeRehearsalError(
+            "PERSONAL_CREDENTIAL_PRE_READBACK_REVOKED",
+            "lifecycle personal credential was already revoked before the final proof",
+        )
     pat_pre_status = _raw_mcp_initialize_status(runtime, lifecycle_pat_file)
     if pat_pre_status != 200:
         raise UpgradeRehearsalError(
-            f"PAT_PRE_REVOCATION_HTTP_{pat_pre_status}",
+            f"PERSONAL_CREDENTIAL_PRE_HTTP_{pat_pre_status}",
             "lifecycle PAT was not usable immediately before revocation",
         )
     service_pre_status = _raw_mcp_initialize_status(runtime, service_token_file)

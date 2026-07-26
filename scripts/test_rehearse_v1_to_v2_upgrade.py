@@ -1561,9 +1561,22 @@ with upgrade._public_loopback_resolution(runtime):
                 Path(browser_environment["PLAYWRIGHT_BROWSERS_PATH"]), runtime_root
             )
         )
+        self.assertTrue(
+            upgrade._inside(Path(browser_environment["TMPDIR"]), runtime_root)
+        )
+        self.assertTrue(
+            upgrade._inside(
+                Path(browser_environment["NODE_COMPILE_CACHE"]), runtime_root
+            )
+        )
         self.assertEqual("0", browser_environment["COREPACK_ENABLE_NETWORK"])
         self.assertEqual("true", browser_environment["NPM_CONFIG_OFFLINE"])
         self.assertEqual("1", browser_environment["PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD"])
+
+    def test_personal_credential_http_failure_code_is_not_secret_shaped(self) -> None:
+        upgrade._secret_scan_public_document({
+            "detailCode": "PERSONAL_CREDENTIAL_PRE_HTTP_401",
+        })
 
         source = upgrade.SCRIPT_PATH.read_text(encoding="utf-8")
         self.assertGreaterEqual(source.count('"--offline"'), 3)
