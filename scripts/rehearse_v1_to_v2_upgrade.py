@@ -4204,7 +4204,10 @@ def _playwright_environment(runtime: RuntimeContext) -> dict[str, str]:
         "PNPM_HOME": runtime.runtime_root / "pnpm-home",
         "XDG_CONFIG_HOME": runtime.runtime_root / "xdg-config",
         "XDG_CACHE_HOME": runtime.runtime_root / "xdg-cache",
-        "TMPDIR": runtime.runtime_root / "playwright-tmp",
+        # Chromium places a ProcessSingleton Unix socket below TMPDIR. Keep
+        # the value at the already-private runtime root instead of adding a
+        # nested directory so the formal Linux path remains below sun_path.
+        "TMPDIR": runtime.runtime_root,
         "NODE_COMPILE_CACHE": runtime.runtime_root / "node-compile-cache",
     }
     for path in roots.values():
