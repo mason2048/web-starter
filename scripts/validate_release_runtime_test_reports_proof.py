@@ -139,7 +139,7 @@ VALIDATOR_SOURCE = "scripts/validate_release_runtime_test_reports_proof.py"
 # together with a reviewed update to this validator and its negative tests.
 REVIEWED_BEHAVIOR_SHA256: Mapping[str, str] = {
     "web-starter-web/e2e/release-runtime.spec.ts":
-        "8c47870a26a938c192b35abf41cfd7ec767e976065fb8f50b904270e54e85b9a",
+        "ce10f85ae222a8e61c72124f6c1d862388646682740ff30722650a2f1ed94d74",
     "web-starter-web/e2e/frontend-quality-runtime.spec.ts":
         "61279940b72fb07e8549d21c4575c12539c525deeb3360b7fdc8849db3a92bb7",
     "web-starter-web/e2e/v1-management-runtime.spec.ts":
