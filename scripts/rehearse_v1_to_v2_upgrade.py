@@ -517,6 +517,7 @@ class RuntimeContext:
     sdk_dependencies_prepared: bool = False
     sdk_invocation_count: int = 0
     playwright_dependencies_prepared: bool = False
+    playwright_temp_root: Path | None = None
     cleanup_summary: dict[str, Any] = field(default_factory=dict)
     sanitized_observations: dict[str, Any] = field(default_factory=dict)
     dependency_seed_evidence: dict[str, Any] = field(default_factory=dict)
@@ -4198,17 +4199,42 @@ def _swap_manifest_for_v2(
     return target, source
 
 
+def _playwright_temp_root(runtime: RuntimeContext) -> Path:
+    existing = runtime.playwright_temp_root
+    sentinel_name = ".web-starter-playwright-owner.json"
+    expected_owner = {"owner": OWNER_VALUE, "runId": runtime.names.run_id}
+    if existing is not None:
+        try:
+            owner = json.loads((existing / sentinel_name).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            owner = None
+        if existing.is_symlink() or not existing.is_dir() or owner != expected_owner:
+            raise UpgradeRehearsalError(
+                "PLAYWRIGHT_PRIVATE_PATH",
+                "private Playwright temporary root lost its ownership boundary",
+            )
+        return existing
+    root = runtime.runtime_root.parent / f"p-{runtime.names.run_id}"
+    if root.exists() or root.is_symlink() or _inside(root.resolve(), REPOSITORY_ROOT.resolve()):
+        raise UpgradeRehearsalError(
+            "PLAYWRIGHT_PRIVATE_PATH",
+            "private Playwright temporary root collided with an existing path",
+        )
+    root.mkdir(mode=0o700)
+    write_private_json(root / sentinel_name, expected_owner)
+    runtime.playwright_temp_root = root
+    return root
+
+
 def _playwright_environment(runtime: RuntimeContext) -> dict[str, str]:
     roots = {
         "HOME": runtime.runtime_root / "playwright-user-home",
         "PNPM_HOME": runtime.runtime_root / "pnpm-home",
         "XDG_CONFIG_HOME": runtime.runtime_root / "xdg-config",
         "XDG_CACHE_HOME": runtime.runtime_root / "xdg-cache",
-        # Chromium places a ProcessSingleton Unix socket below TMPDIR. Keep
-        # the value at the already-private runtime root instead of adding a
-        # nested directory so the formal Linux path remains below sun_path.
-        "TMPDIR": runtime.runtime_root,
-        "NODE_COMPILE_CACHE": runtime.runtime_root / "node-compile-cache",
+        # Chromium and Playwright need a short temp path for Unix sockets.
+        # This sibling is private, owner-marked and removed with runtime_root.
+        "TMPDIR": _playwright_temp_root(runtime),
     }
     for path in roots.values():
         if not path.exists():
@@ -5148,22 +5174,42 @@ def _cleanup_owned_resources(runtime: RuntimeContext, runner: PrivateCommandRunn
     }
 
 
-def _remove_private_runtime(runtime: RuntimeContext) -> bool:
-    root = runtime.runtime_root
+def _remove_owned_private_tree(
+        root: Path,
+        sentinel_name: str,
+        expected_owner: Mapping[str, str]) -> bool:
     if root.is_symlink() or not root.is_dir() or _inside(root.resolve(), REPOSITORY_ROOT.resolve()):
         return False
-    sentinel = root / ".web-starter-upgrade-owner.json"
+    sentinel = root / sentinel_name
     try:
         owner = json.loads(sentinel.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    if owner != {"owner": OWNER_VALUE, "runId": runtime.names.run_id}:
+    if owner != dict(expected_owner):
         return False
     try:
         shutil.rmtree(root)
     except OSError:
         return False
     return not root.exists()
+
+
+def _remove_private_runtime(runtime: RuntimeContext) -> bool:
+    expected_owner = {"owner": OWNER_VALUE, "runId": runtime.names.run_id}
+    playwright_removed = (
+        runtime.playwright_temp_root is None
+        or _remove_owned_private_tree(
+            runtime.playwright_temp_root,
+            ".web-starter-playwright-owner.json",
+            expected_owner,
+        )
+    )
+    runtime_removed = _remove_owned_private_tree(
+        runtime.runtime_root,
+        ".web-starter-upgrade-owner.json",
+        expected_owner,
+    )
+    return playwright_removed and runtime_removed
 
 
 def _write_result(runtime: RuntimeContext, runner_logs: Mapping[str, Any]) -> int:

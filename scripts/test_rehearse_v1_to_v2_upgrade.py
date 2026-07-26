@@ -1353,7 +1353,12 @@ with upgrade._public_loopback_resolution(runtime):
         )
 
     def test_private_runtime_removal_requires_exact_sentinel(self) -> None:
-        runtime_root = upgrade._private_temp_root(RUN_ID)
+        runtime_root = self.root / "owned-runtime"
+        runtime_root.mkdir(mode=0o700)
+        upgrade.write_private_json(
+            runtime_root / ".web-starter-upgrade-owner.json",
+            {"owner": upgrade.OWNER_VALUE, "runId": RUN_ID},
+        )
         runtime = upgrade.RuntimeContext(
             self.root,
             runtime_root,
@@ -1361,10 +1366,17 @@ with upgrade._public_loopback_resolution(runtime):
             upgrade.Ports(18080, 18443, 18081),
             upgrade.EvidenceState(),
         )
+        playwright_temp = upgrade._playwright_temp_root(runtime)
         self.assertTrue(upgrade._remove_private_runtime(runtime))
         self.assertFalse(runtime_root.exists())
+        self.assertFalse(playwright_temp.exists())
 
-        tampered = upgrade._private_temp_root(RUN_ID)
+        tampered = self.root / "tampered-runtime"
+        tampered.mkdir(mode=0o700)
+        upgrade.write_private_json(
+            tampered / ".web-starter-upgrade-owner.json",
+            {"owner": upgrade.OWNER_VALUE, "runId": RUN_ID},
+        )
         sentinel = tampered / ".web-starter-upgrade-owner.json"
         sentinel.write_text('{"owner":"other","runId":"0123456789ab"}\n', encoding="utf-8")
         sentinel.chmod(0o600)
@@ -1561,14 +1573,19 @@ with upgrade._public_loopback_resolution(runtime):
                 Path(browser_environment["PLAYWRIGHT_BROWSERS_PATH"]), runtime_root
             )
         )
-        self.assertTrue(
-            upgrade._inside(Path(browser_environment["TMPDIR"]), runtime_root)
+        playwright_temp = Path(browser_environment["TMPDIR"])
+        self.assertEqual(runtime.playwright_temp_root, playwright_temp)
+        self.assertEqual(runtime_root.parent, playwright_temp.parent)
+        self.assertFalse(upgrade._inside(playwright_temp, runtime_root))
+        self.assertEqual(0o700, stat.S_IMODE(playwright_temp.stat().st_mode))
+        self.assertEqual(
+            {"owner": upgrade.OWNER_VALUE, "runId": RUN_ID},
+            json.loads(
+                (playwright_temp / ".web-starter-playwright-owner.json")
+                .read_text(encoding="utf-8")
+            ),
         )
-        self.assertTrue(
-            upgrade._inside(
-                Path(browser_environment["NODE_COMPILE_CACHE"]), runtime_root
-            )
-        )
+        self.assertNotIn("NODE_COMPILE_CACHE", browser_environment)
         self.assertEqual("0", browser_environment["COREPACK_ENABLE_NETWORK"])
         self.assertEqual("true", browser_environment["NPM_CONFIG_OFFLINE"])
         self.assertEqual("1", browser_environment["PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD"])
