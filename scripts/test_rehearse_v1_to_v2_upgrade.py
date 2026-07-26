@@ -1578,6 +1578,44 @@ with upgrade._public_loopback_resolution(runtime):
             "detailCode": "PERSONAL_CREDENTIAL_PRE_HTTP_401",
         })
 
+    def test_failed_playwright_detail_uses_structured_location_without_message(self) -> None:
+        suites = []
+        for file_name, titles in upgrade.PLAYWRIGHT_EXPECTED_TITLES.items():
+            specs = []
+            for index, title in enumerate(titles):
+                failed = file_name == "frontend-quality-runtime.spec.ts" and index == 0
+                result = {
+                    "status": "failed" if failed else "passed",
+                    "retry": 0,
+                }
+                if failed:
+                    result["error"] = {
+                        "message": "must-not-enter-public-evidence",
+                        "location": {
+                            "file": f"/private/source/e2e/{file_name}",
+                            "line": 171,
+                            "column": 9,
+                        },
+                    }
+                specs.append({
+                    "title": title,
+                    "ok": not failed,
+                    "tests": [{
+                        "expectedStatus": "passed",
+                        "status": "unexpected" if failed else "expected",
+                        "results": [result],
+                    }],
+                })
+            suites.append({"file": file_name, "specs": specs})
+
+        detail = upgrade._failed_playwright_report_detail(json.dumps({
+            "suites": suites,
+            "errors": [],
+        }).encode())
+
+        self.assertEqual("FQ_SPEC_1_FAILED_LINE_171", detail)
+        self.assertNotIn("must-not-enter", detail)
+
         source = upgrade.SCRIPT_PATH.read_text(encoding="utf-8")
         self.assertGreaterEqual(source.count('"--offline"'), 3)
         self.assertNotIn("run_with_one_retry", source)

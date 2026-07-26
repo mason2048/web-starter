@@ -4508,9 +4508,11 @@ def _failed_playwright_report_detail(payload: bytes) -> str:
                 and results
                 and isinstance(results[-1], dict)
             ):
+                location_candidates: list[Any] = []
                 error_text: list[str] = []
                 error = results[-1].get("error")
                 if isinstance(error, dict):
+                    location_candidates.append(error.get("location"))
                     error_text.extend(
                         value for name in ("stack", "message", "snippet")
                         if isinstance((value := error.get(name)), str)
@@ -4519,17 +4521,30 @@ def _failed_playwright_report_detail(payload: bytes) -> str:
                 if isinstance(errors, list):
                     for item in errors:
                         if isinstance(item, dict):
+                            location_candidates.append(item.get("location"))
                             error_text.extend(
                                 value for name in ("stack", "message", "snippet")
                                 if isinstance((value := item.get(name)), str)
                             )
+                for location in location_candidates:
+                    if (
+                        isinstance(location, dict)
+                        and isinstance(location.get("file"), str)
+                        and Path(location["file"]).name == file_name
+                        and isinstance(location.get("line"), int)
+                        and not isinstance(location["line"], bool)
+                        and 0 < location["line"] <= 999_999
+                    ):
+                        source_line = str(location["line"])
+                        break
                 combined_error = "\n".join(error_text)
-                match = re.search(
-                    rf"{re.escape(file_name)}:([1-9][0-9]{{0,5}}):[1-9][0-9]{{0,4}}",
-                    combined_error,
-                )
-                if match is not None:
-                    source_line = match.group(1)
+                if source_line is None:
+                    match = re.search(
+                        rf"{re.escape(file_name)}:([1-9][0-9]{{0,5}}):[1-9][0-9]{{0,4}}",
+                        combined_error,
+                    )
+                    if match is not None:
+                        source_line = match.group(1)
                 marker = re.search(
                     r"\bSAFE_(?:HTTP_STATUS_[1-5][0-9]{2}|"
                     r"SESSION_COOKIE_(?:MISSING|NOT_HTTP_ONLY))\b",
