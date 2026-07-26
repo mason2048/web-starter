@@ -151,6 +151,8 @@ def _write_env(
     image_tag = "candidate-" + commit
     random_values = [secrets.token_urlsafe(36) for _ in range(7)]
     values = {
+        "WEB_STARTER_APP_REFERENCE": app_reference,
+        "WEB_STARTER_NGINX_REFERENCE": nginx_reference,
         "WEB_STARTER_APP_IMAGE": app_base,
         "WEB_STARTER_NGINX_IMAGE": nginx_base,
         "WEB_STARTER_IMAGE_TAG": image_tag,

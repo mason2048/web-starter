@@ -36,6 +36,40 @@ class ToolingLifecycleRehearsalTest(unittest.TestCase):
         )
         self.assertIsNone(rehearsal.REFERENCE.fullmatch("registry.invalid/app:latest"))
 
+    def test_runtime_env_and_compose_prefer_exact_digest_references(self) -> None:
+        app_reference = "registry.invalid/app@sha256:" + "a" * 64
+        nginx_reference = "registry.invalid/nginx@sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "tooling.env"
+            rehearsal._write_env(
+                target,
+                "c" * 40,
+                app_reference,
+                nginx_reference,
+                "registry.invalid/mysql@sha256:" + "d" * 64,
+                "registry.invalid/redis@sha256:" + "e" * 64,
+                {"mysql": 31001, "redis": 31002, "app": 31003, "nginx": 31004},
+            )
+            values = dict(
+                line.split("=", 1)
+                for line in target.read_text(encoding="utf-8").splitlines()
+            )
+            self.assertEqual(app_reference, values["WEB_STARTER_APP_REFERENCE"])
+            self.assertEqual(nginx_reference, values["WEB_STARTER_NGINX_REFERENCE"])
+
+        repository = Path(__file__).resolve().parent.parent
+        compose = (repository / "compose.yaml").read_text(encoding="utf-8")
+        self.assertIn(
+            "image: ${WEB_STARTER_APP_REFERENCE:-${WEB_STARTER_APP_IMAGE:-web-starter-app}:"
+            "${WEB_STARTER_IMAGE_TAG:-local}}",
+            compose,
+        )
+        self.assertIn(
+            "image: ${WEB_STARTER_NGINX_REFERENCE:-${WEB_STARTER_NGINX_IMAGE:-web-starter-nginx}:"
+            "${WEB_STARTER_IMAGE_TAG:-local}}",
+            compose,
+        )
+
     def test_business_fixture_is_deterministic_and_within_signed_bigint(self) -> None:
         fixture_id, fixture_code = rehearsal._business_fixture("web-starter-tooling-17-1")
         self.assertEqual(

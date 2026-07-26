@@ -43,7 +43,7 @@ services:
       - data
 
   app:
-    image: ${WEB_STARTER_APP_IMAGE:-web-starter-app}:${WEB_STARTER_IMAGE_TAG:-local}
+    image: ${WEB_STARTER_APP_REFERENCE:-${WEB_STARTER_APP_IMAGE:-web-starter-app}:${WEB_STARTER_IMAGE_TAG:-local}}
     build:
       context: .
       dockerfile: Dockerfile
@@ -128,7 +128,7 @@ services:
       - data
 
   nginx:
-    image: ${WEB_STARTER_NGINX_IMAGE:-web-starter-nginx}:${WEB_STARTER_IMAGE_TAG:-local}
+    image: ${WEB_STARTER_NGINX_REFERENCE:-${WEB_STARTER_NGINX_IMAGE:-web-starter-nginx}:${WEB_STARTER_IMAGE_TAG:-local}}
     build:
       context: .
       dockerfile: deploy/nginx/Dockerfile

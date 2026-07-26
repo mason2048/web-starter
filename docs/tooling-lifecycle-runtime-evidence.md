@@ -10,14 +10,14 @@ AC-02、AC-37、V2-AC-16 与 V2-AC-17 共用一组真实 Docker 运行证据。�
 
 1. 确认该 Compose project 没有容器、卷或网络遗留。
 2. 执行 `doctor`，要求 Java、Maven Wrapper、Node、pnpm、Docker Engine、Compose、`up --wait`、工作区文件、私有环境文件、必需配置和四个端口的 22 项清单全部为 `PASS`；报告只保留状态、可操作说明和完整输出哈希，不保留配置值。
-3. 使用 App/Nginx candidate tag 与 App/Nginx/MySQL/Redis 的已验证 digest 身份执行 `up --no-build`；四服务必须全部 `running/healthy`。用一次性随机管理员密码完成真实 CSRF + HTTP Session 登录，数据库内只读取 `password_hash` 的 SHA-256，并扫描第一次运行日志确认明文密码命中数为零。
+3. 通过 `WEB_STARTER_APP_REFERENCE` 与 `WEB_STARTER_NGINX_REFERENCE` 强制使用 App/Nginx 的完整不可变 digest reference，并为 MySQL/Redis 注入已验证 digest reference 后执行 `up --no-build`；不得退回候选 tag。四服务必须全部 `running/healthy`。用一次性随机管理员密码完成真实 CSRF + HTTP Session 登录，数据库内只读取 `password_hash` 的 SHA-256，并扫描第一次运行日志确认明文密码命中数为零。
 4. 通过 MySQL 容器内客户端写入一条由 Compose project 确定、内容固定的 `biz_project` 记录并读取数据库侧 SHA-256；SQL 仅走标准输入，数据库密码只从容器环境读取，不进入命令参数或报告。
 5. 执行不带 `--volumes` 的默认 `down`；容器和网络必须消失，MySQL/Redis 两个命名卷必须保留。随后以 `0600` 临时文件和原子替换从私有环境文件中清空管理员初始密码，不删除其他配置。
 6. 分别验证“只有确认参数但无 `--volumes`”“确认项目名不一致”“非交互且缺少确认”三条路径在调用 Docker 前失败，且保留卷不发生变化。
 7. 再次 `up --no-build`，要求四服务恢复健康且 image ID 不变；使用第一次的密码再次完成真实登录，数据库密码哈希指纹必须不变，第二次运行日志的明文命中数仍为零。再次读取同一 Project，行数必须仍为 1，数据库侧 SHA-256 必须与重启前以及验证器根据固定字段独立重算的结果完全一致。
 8. 最后使用 `--volumes --confirm-delete-volumes <exact-project>` 显式清理；该专用项目的容器、网络和卷必须全部为零。
 
-`compose.yaml` 的 MySQL 和 Redis 镜像保留本地默认值，同时允许发布演练通过 `WEB_STARTER_MYSQL_IMAGE` 与 `WEB_STARTER_REDIS_IMAGE` 注入完整 digest reference。生产仍只使用独立的 `compose.production.yaml`。
+`compose.yaml` 的普通本地开发仍使用 `WEB_STARTER_APP_IMAGE`、`WEB_STARTER_NGINX_IMAGE` 与 `WEB_STARTER_IMAGE_TAG`，但完整 `WEB_STARTER_APP_REFERENCE`/`WEB_STARTER_NGINX_REFERENCE` 存在时必须优先使用；MySQL 和 Redis 保留本地默认值，同时允许发布演练通过 `WEB_STARTER_MYSQL_IMAGE` 与 `WEB_STARTER_REDIS_IMAGE` 注入完整 digest reference。生产仍只使用独立的 `compose.production.yaml`。
 
 ## 独立验证与发布绑定
 
