@@ -15,6 +15,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import scripts.rehearse_v1_to_v2_upgrade as upgrade
+import scripts.validate_v1_upgrade_evidence as upgrade_gate
 
 
 RUN_ID = "0123456789ab"
@@ -359,6 +360,14 @@ class V1ToV2UpgradeHarnessTest(unittest.TestCase):
         )
         self.assertLess(active_probe, browser_runtime)
         self.assertLess(browser_runtime, revoked_readback)
+
+    def test_lifecycle_pass_detail_matches_the_independent_evidence_contract(self) -> None:
+        expected = upgrade_gate.CHECK_PASS_DETAILS[
+            "lifecycle.revokedPatRejectedAndReadBack"
+        ]
+        source = upgrade.SCRIPT_PATH.read_text(encoding="utf-8")
+        marker = source.rindex('"lifecycle.revokedPatRejectedAndReadBack"')
+        self.assertIn(f'"{expected}"', source[marker:marker + 220])
 
     def test_direct_script_import_can_enter_public_loopback_context(self) -> None:
         script = """

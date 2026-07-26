@@ -5746,7 +5746,7 @@ def execute_rehearsal(args: argparse.Namespace) -> int:
         state.mark(
             "lifecycle.revokedPatRejectedAndReadBack",
             "PASS",
-            "IDENTITY_EPOCH_CREDENTIAL_401_AND_READBACK_PASS",
+            "REVOKED_PAT_DATABASE_READBACK_PASS",
         )
         state.mark(
             "lifecycle.disabledServiceRejectedAndReadBack", "PASS", "DISABLED_SERVICE_401_AND_READBACK_PASS"
