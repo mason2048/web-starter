@@ -52,7 +52,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
         <mcp-sdk.version>2.0.0</mcp-sdk.version>
-        <maven-enforcer.version>3.6.2</maven-enforcer.version>
+        <maven-enforcer.version>3.6.3</maven-enforcer.version>
     </properties>
 
     <dependencyManagement>
