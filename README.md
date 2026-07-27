@@ -1,6 +1,13 @@
 # 启程 Web Starter
 
+[![CI](https://github.com/mason2048/web-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/mason2048/web-starter/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/mason2048/web-starter)](LICENSE)
+
 `web-starter` 是面向公司内部 Web 管理系统的通用脚手架。它采用模块化单体架构，在同一业务与安全边界内提供 Vue 管理端、REST API 和 MCP Server。
+
+## 项目状态
+
+当前代码版本为 `2.0.0`。默认分支用于持续集成和社区协作；正式版本仍以注释 Git Tag、不可变镜像摘要和对应验收证据为准。构建通过不代表部署、迁移、认证或端到端流程已经在你的环境中通过。
 
 ## 边界
 
@@ -129,6 +136,8 @@ V2 Agent 调用 `project.create`、`project.update`、`project.remove` 时应提
 
 ## 更多文档
 
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
 - [总体架构](docs/architecture.md)
 - [V1 验收基线](docs/acceptance/v1-acceptance-baseline.md)
 - [V1 验收证据模板](docs/acceptance/v1-evidence-template.md)
@@ -147,3 +156,7 @@ V2 Agent 调用 `project.create`、`project.update`、`project.remove` 时应提
 - [供应链与发布镜像](docs/supply-chain.md)
 - [模块复制规范](docs/module-copy-guide.md)
 - [派生项目与生成模块验收演练](docs/generator-acceptance-rehearsal.md)
+
+## 许可证
+
+本项目采用 [Apache License 2.0](LICENSE) 开源。

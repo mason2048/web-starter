@@ -18,6 +18,22 @@
 
     <name>web-starter</name>
     <description>启程 Web Starter - 面向内部管理系统的通用开发脚手架</description>
+    <url>https://github.com/mason2048/web-starter</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <connection>scm:git:https://github.com/mason2048/web-starter.git</connection>
+        <developerConnection>scm:git:https://github.com/mason2048/web-starter.git</developerConnection>
+        <url>https://github.com/mason2048/web-starter</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <modules>
         <module>web-starter-core</module>
