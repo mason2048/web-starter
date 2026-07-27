@@ -3,11 +3,30 @@
 [![CI](https://github.com/mason2048/web-starter/actions/workflows/ci.yml/badge.svg)](https://github.com/mason2048/web-starter/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/mason2048/web-starter)](LICENSE)
 
+![启程 Web Starter 项目主视觉](docs/images/hero.webp)
+
 `web-starter` 是面向公司内部 Web 管理系统的通用脚手架。它采用模块化单体架构，在同一业务与安全边界内提供 Vue 管理端、REST API 和 MCP Server。
+
+它不是绑定某个行业或业务流程的成品系统，而是一套可以复制、裁剪和继续开发的工程基线：管理端具备常用系统能力，REST 与 MCP 复用同一套业务服务、权限判断、事务和审计链路，部署配置也能从本地开发平滑过渡到内网环境。
 
 ## 项目状态
 
 当前代码版本为 `2.0.0`。默认分支用于持续集成和社区协作；正式版本仍以注释 Git Tag、不可变镜像摘要和对应验收证据为准。构建通过不代表部署、迁移、认证或端到端流程已经在你的环境中通过。
+
+## 管理端概览
+
+![启程 Web Starter 管理端能力概览](docs/images/admin-overview.webp)
+
+上图为能力示意图。管理端围绕用户、角色、菜单与按钮权限、系统配置、审计日志和示例 Project CRUD 组织，可作为新业务模块的统一入口。
+
+## 核心能力
+
+![启程 Web Starter 核心能力](docs/images/feature-showcase.webp)
+
+- **统一安全基础**：Web Session、OAuth 访问令牌、PAT 和服务账号令牌最终映射为同一种调用方身份。
+- **共享业务边界**：REST API 与 MCP Tool 调用相同的业务 Service，并共享事务、RBAC 和审计规则。
+- **可复制示例模块**：Project 模块覆盖列表、详情、新增、修改、删除、权限、迁移和审计的完整链路。
+- **面向实际部署**：提供 Docker Compose、Nginx、健康检查、环境变量配置和发布验收说明。
 
 ## 边界
 
@@ -44,6 +63,10 @@ web-starter
 ```
 
 依赖方向保持为：`admin -> mcp/security/project/system -> core`。MCP Tool 只能调用业务 Service，不能直接调用 Mapper。
+
+![启程 Web Starter 总体技术架构](docs/images/architecture.webp)
+
+架构图展示的是逻辑调用关系：Web 管理端和外部 Agent 从不同入口进入，在适配与安全层汇合为统一 Caller，再由共享业务 Service 访问 MySQL、Redis 和审计能力。
 
 ## 快速启动
 
@@ -109,6 +132,10 @@ python3 scripts/repository_policy.py secrets
 每个凭据最终映射为统一 `CurrentCaller`。令牌调用的最终授权结果为“主体实时 RBAC”与“令牌 Scope”的交集；禁用用户/服务账号、撤销令牌或回收角色权限会立即影响后续调用。
 
 长期令牌只保存带 Pepper 版本的 HMAC-SHA-256 哈希和短提示，明文仅在创建响应中出现一次；旧 Pepper 验证成功后可事务迁移。OAuth Client Secret 支持有截止时间的 active/retiring 重叠轮换。外部入口由 Nginx 标记为 `public`，应用会拒绝 PAT 与服务账号长期令牌。详细威胁边界见 [安全模型](docs/security.md)。
+
+![MCP 安全调用流程](docs/images/mcp-security-flow.webp)
+
+每次 MCP 调用依次经过入口校验、令牌认证、统一 Caller 解析以及“实时 RBAC 与凭据 Scope 取交集”的最终授权，再进入业务事务并记录 Trace ID、调用结果和耗时。项目明确不提供任意 SQL、Shell、文件系统或动态代码执行工具。
 
 ## MCP Server
 
