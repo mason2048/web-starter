@@ -354,16 +354,21 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         self.assertIn(
             '"${{ steps.compose_cli.outputs.binary }}" '
             "-f compose.production.yaml config "
-            "--no-normalize --format json",
+            "--format json",
             CI_WORKFLOW,
         )
         self.assertIn(
             '"${{ steps.compose_cli.outputs.binary }}" '
             "-f compose.production.yaml config "
-            "--no-normalize --format json",
+            "--format json",
             RELEASE_WORKFLOW,
         )
         for workflow in (CI_WORKFLOW, RELEASE_WORKFLOW):
+            compose_step_start = workflow.index(
+                "- name: Install pinned Docker Compose serializer"
+            )
+            compose_step_end = workflow.index("\n      - name:", compose_step_start + 1)
+            compose_step = workflow[compose_step_start:compose_step_end]
             self.assertIn("DOCKER_COMPOSE_VERSION: 5.3.1", workflow)
             self.assertIn(
                 "DOCKER_COMPOSE_LINUX_X86_64_SHA256: "
@@ -375,7 +380,12 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
                 "v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64",
                 workflow,
             )
-            self.assertIn("sha256sum --check --strict -", workflow)
+            self.assertIn(
+                "printf '%s  %s\\n' "
+                '"${DOCKER_COMPOSE_LINUX_X86_64_SHA256}" "${binary}" \\',
+                compose_step,
+            )
+            self.assertIn("sha256sum --check --strict -", compose_step)
             self.assertIn(
                 'test "$("${binary}" version --short)" = "${DOCKER_COMPOSE_VERSION}"',
                 workflow,
