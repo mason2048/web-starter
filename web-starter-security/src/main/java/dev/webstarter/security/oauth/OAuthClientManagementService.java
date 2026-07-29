@@ -1,6 +1,5 @@
 package dev.webstarter.security.oauth;
 
-import java.security.SecureRandom;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -9,6 +8,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -32,7 +32,7 @@ public class OAuthClientManagementService {
     private final OAuthClientMapper mapper;
     private final PasswordEncoder passwordEncoder;
     private final CredentialScopePolicy scopePolicy;
-    private final SecureRandom secureRandom;
+    private final SecureRandomSource secureRandomSource;
     private final Clock clock;
     private final Duration defaultSecretOverlap;
     private final Duration maximumSecretOverlap;
@@ -41,7 +41,7 @@ public class OAuthClientManagementService {
             OAuthClientMapper mapper,
             PasswordEncoder passwordEncoder,
             CredentialScopePolicy scopePolicy) {
-        this(mapper, passwordEncoder, scopePolicy, new SecureRandom(), Clock.systemUTC(),
+        this(mapper, passwordEncoder, scopePolicy, SecureRandomSource.system(), Clock.systemUTC(),
                 Duration.ofMinutes(15), Duration.ofHours(24));
     }
 
@@ -50,7 +50,7 @@ public class OAuthClientManagementService {
             PasswordEncoder passwordEncoder,
             CredentialScopePolicy scopePolicy,
             WebStarterSecurityProperties properties) {
-        this(mapper, passwordEncoder, scopePolicy, new SecureRandom(), Clock.systemUTC(),
+        this(mapper, passwordEncoder, scopePolicy, SecureRandomSource.system(), Clock.systemUTC(),
                 properties.oauthClientSecretOverlap(), properties.oauthClientSecretMaxOverlap());
     }
 
@@ -58,9 +58,9 @@ public class OAuthClientManagementService {
             OAuthClientMapper mapper,
             PasswordEncoder passwordEncoder,
             CredentialScopePolicy scopePolicy,
-            SecureRandom secureRandom,
+            SecureRandomSource secureRandomSource,
             Clock clock) {
-        this(mapper, passwordEncoder, scopePolicy, secureRandom, clock,
+        this(mapper, passwordEncoder, scopePolicy, secureRandomSource, clock,
                 Duration.ofMinutes(15), Duration.ofHours(24));
     }
 
@@ -68,14 +68,14 @@ public class OAuthClientManagementService {
             OAuthClientMapper mapper,
             PasswordEncoder passwordEncoder,
             CredentialScopePolicy scopePolicy,
-            SecureRandom secureRandom,
+            SecureRandomSource secureRandomSource,
             Clock clock,
             Duration defaultSecretOverlap,
             Duration maximumSecretOverlap) {
         this.mapper = mapper;
         this.passwordEncoder = passwordEncoder;
         this.scopePolicy = scopePolicy;
-        this.secureRandom = secureRandom;
+        this.secureRandomSource = Objects.requireNonNull(secureRandomSource, "secureRandomSource");
         this.clock = clock;
         this.defaultSecretOverlap = defaultSecretOverlap;
         this.maximumSecretOverlap = maximumSecretOverlap;
@@ -306,13 +306,13 @@ public class OAuthClientManagementService {
 
     private String newSecret() {
         byte[] value = new byte[32];
-        secureRandom.nextBytes(value);
+        secureRandomSource.nextBytes(value);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }
 
     private String newSecretVersion() {
         byte[] value = new byte[12];
-        secureRandom.nextBytes(value);
+        secureRandomSource.nextBytes(value);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }
 
