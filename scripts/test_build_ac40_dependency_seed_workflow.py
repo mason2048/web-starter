@@ -351,6 +351,16 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         self.assertIn('sha256sum --check --strict -', CI_WORKFLOW)
         self.assertIn('"${install_root}/actionlint" -shellcheck= -color', CI_WORKFLOW)
         self.assertIn("WEB_STARTER_GIT_COMMIT: ${{ github.sha }}", CI_WORKFLOW)
+        self.assertIn(
+            "docker compose -f compose.production.yaml config "
+            "--no-normalize --format json",
+            CI_WORKFLOW,
+        )
+        self.assertIn(
+            "docker compose -f compose.production.yaml config "
+            "--no-normalize --format json",
+            RELEASE_WORKFLOW,
+        )
 
 
 if __name__ == "__main__":
