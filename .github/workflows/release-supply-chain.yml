@@ -593,7 +593,7 @@ jobs:
           WEB_STARTER_PUBLIC_TLS_CERT_FILE: /run/secrets/web-starter-cert.pem
           WEB_STARTER_PUBLIC_TLS_KEY_FILE: /run/secrets/web-starter-key.pem
         run: |
-          "${{ steps.compose_cli.outputs.binary }}" -f compose.production.yaml config --no-normalize --format json > artifacts/production-compose.json
+          "${{ steps.compose_cli.outputs.binary }}" -f compose.production.yaml config --format json > artifacts/production-compose.json
           python3 -B scripts/production_compose_policy.py \
             --compose-json artifacts/production-compose.json \
             --repository-root . \
