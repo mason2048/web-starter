@@ -550,6 +550,26 @@ jobs:
             "WEB_STARTER_NGINX_DIGEST=${NGINX_DIGEST}" \
             > artifacts/deployment-images.env
 
+      - name: Install pinned Docker Compose serializer
+        id: compose_cli
+        shell: bash
+        env:
+          DOCKER_COMPOSE_VERSION: 5.3.1
+          DOCKER_COMPOSE_LINUX_X86_64_SHA256: f9ebc6ebdb19d769b793c245a736caaeb198c62587f13b25c660c13b4987f959
+        run: |
+          set -euo pipefail
+          install_root="$(mktemp -d "${RUNNER_TEMP}/web-starter-compose.XXXXXX")"
+          binary="${install_root}/docker-compose"
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-all-errors \
+            --output "${binary}" \
+            "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64"
+          printf '%s  %s\n' "${DOCKER_COMPOSE_LINUX_X86_64_SHA256}" "${binary}" \
+            | sha256sum --check --strict -
+          chmod 0755 "${binary}"
+          test "$("${binary}" version --short)" = "${DOCKER_COMPOSE_VERSION}"
+          printf 'binary=%s\n' "${binary}" >> "${GITHUB_OUTPUT}"
+
       - name: Expand and enforce the actual production Compose model
         env:
           WEB_STARTER_MYSQL_IMAGE: ${{ vars.WEB_STARTER_MYSQL_IMAGE }}
@@ -573,7 +593,7 @@ jobs:
           WEB_STARTER_PUBLIC_TLS_CERT_FILE: /run/secrets/web-starter-cert.pem
           WEB_STARTER_PUBLIC_TLS_KEY_FILE: /run/secrets/web-starter-key.pem
         run: |
-          docker compose -f compose.production.yaml config --no-normalize --format json > artifacts/production-compose.json
+          "${{ steps.compose_cli.outputs.binary }}" -f compose.production.yaml config --no-normalize --format json > artifacts/production-compose.json
           python3 -B scripts/production_compose_policy.py \
             --compose-json artifacts/production-compose.json \
             --repository-root . \
