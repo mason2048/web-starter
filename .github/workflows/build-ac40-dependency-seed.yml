@@ -310,10 +310,6 @@ jobs:
           NPM_CONFIG_GLOBALCONFIG: ${{ steps.roots.outputs.npm_global_config }}
           NPM_CONFIG_CACHE: ${{ steps.roots.outputs.npm_cache }}
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-          npm_config_userconfig: ${{ steps.roots.outputs.npm_user_config }}
-          npm_config_globalconfig: ${{ steps.roots.outputs.npm_global_config }}
-          npm_config_cache: ${{ steps.roots.outputs.npm_cache }}
-          npm_config_registry: https://registry.npmjs.org/
           PNPM_STORE_ROOT: ${{ steps.roots.outputs.pnpm_store_root }}
           PNPM_VIRTUAL_STORE: ${{ steps.roots.outputs.pnpm_virtual_store }}
           PLAYWRIGHT_BROWSERS_PATH: ${{ steps.roots.outputs.playwright_browsers }}
