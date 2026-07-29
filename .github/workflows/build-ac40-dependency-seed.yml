@@ -123,7 +123,7 @@ jobs:
           echo "head_sha=${head_commit}" >> "${GITHUB_OUTPUT}"
 
       - name: Set up frozen Java 21 toolchain without a dependency cache
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "21"
