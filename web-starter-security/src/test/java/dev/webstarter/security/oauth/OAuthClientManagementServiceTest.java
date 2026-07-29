@@ -15,7 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.security.SecureRandom;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -208,7 +208,7 @@ class OAuthClientManagementServiceTest {
 
     private OAuthClientManagementService fixedService() {
         return new OAuthClientManagementService(
-                mapper, encoder, scopePolicy, mock(SecureRandom.class),
+                mapper, encoder, scopePolicy, value -> Arrays.fill(value, (byte) 0),
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofMinutes(15), Duration.ofHours(24));
     }
 
