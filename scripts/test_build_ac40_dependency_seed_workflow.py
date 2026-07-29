@@ -15,6 +15,9 @@ WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 RELEASE_WORKFLOW = (
     REPOSITORY_ROOT / ".github" / "workflows" / "release-supply-chain.yml"
 ).read_text(encoding="utf-8")
+CI_WORKFLOW = (
+    REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml"
+).read_text(encoding="utf-8")
 
 
 class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
@@ -148,7 +151,7 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
 
     def test_pnpm_and_playwright_closure_is_exact_and_browser_is_launched(self) -> None:
         self.assertIn("COREPACK_NPM_REGISTRY: https://registry.npmjs.org", WORKFLOW)
-        self.assertGreaterEqual(WORKFLOW.count("https://registry.npmjs.org/"), 3)
+        self.assertGreaterEqual(WORKFLOW.count("https://registry.npmjs.org/"), 2)
         self.assertIn("corepack prepare pnpm@9.15.9 --activate", WORKFLOW)
         self.assertIn("corepack pnpm@9.15.9 --version", WORKFLOW)
         self.assertIn("${COREPACK_HOME}/v1/pnpm/9.15.9/package.json", WORKFLOW)
@@ -167,6 +170,13 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         self.assertIn('chromium_root="${PLAYWRIGHT_BROWSERS_PATH}/chromium-1228"', WORKFLOW)
         self.assertIn("chromium.launch({ headless: true })", WORKFLOW)
         self.assertIn("await page.setContent", WORKFLOW)
+        for duplicate in (
+            "npm_config_userconfig:",
+            "npm_config_globalconfig:",
+            "npm_config_cache:",
+            "npm_config_registry:",
+        ):
+            self.assertNotIn(duplicate, WORKFLOW)
 
     def test_playwright_revision_probe_executes_against_strict_dependency_layout(self) -> None:
         match = re.search(
@@ -319,6 +329,28 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
             "'{aggregateSha256:$aggregateSha256,archiveSha256:$archiveSha256,artifactId:$artifactId,workflowRunId:$workflowRunId}'",
             WORKFLOW,
         )
+
+    def test_ci_checks_full_history_workflow_syntax_and_release_commit(self) -> None:
+        self.assertEqual(4, CI_WORKFLOW.count("fetch-depth: 0"))
+        self.assertNotIn("fetch-depth: 1", CI_WORKFLOW)
+        self.assertIn(
+            "Validate GitHub Actions workflows with pinned actionlint",
+            CI_WORKFLOW,
+        )
+        self.assertIn("ACTIONLINT_VERSION: 1.7.12", CI_WORKFLOW)
+        self.assertIn(
+            "ACTIONLINT_LINUX_AMD64_SHA256: "
+            "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+            CI_WORKFLOW,
+        )
+        self.assertIn(
+            "https://github.com/rhysd/actionlint/releases/download/"
+            "v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz",
+            CI_WORKFLOW,
+        )
+        self.assertIn('sha256sum --check --strict -', CI_WORKFLOW)
+        self.assertIn('"${install_root}/actionlint" -shellcheck= -color', CI_WORKFLOW)
+        self.assertIn("WEB_STARTER_GIT_COMMIT: ${{ github.sha }}", CI_WORKFLOW)
 
 
 if __name__ == "__main__":
