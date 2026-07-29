@@ -352,15 +352,38 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         self.assertIn('"${install_root}/actionlint" -shellcheck= -color', CI_WORKFLOW)
         self.assertIn("WEB_STARTER_GIT_COMMIT: ${{ github.sha }}", CI_WORKFLOW)
         self.assertIn(
-            "docker compose -f compose.production.yaml config "
+            '"${{ steps.compose_cli.outputs.binary }}" '
+            "-f compose.production.yaml config "
             "--no-normalize --format json",
             CI_WORKFLOW,
         )
         self.assertIn(
-            "docker compose -f compose.production.yaml config "
+            '"${{ steps.compose_cli.outputs.binary }}" '
+            "-f compose.production.yaml config "
             "--no-normalize --format json",
             RELEASE_WORKFLOW,
         )
+        for workflow in (CI_WORKFLOW, RELEASE_WORKFLOW):
+            self.assertIn("DOCKER_COMPOSE_VERSION: 5.3.1", workflow)
+            self.assertIn(
+                "DOCKER_COMPOSE_LINUX_X86_64_SHA256: "
+                "f9ebc6ebdb19d769b793c245a736caaeb198c62587f13b25c660c13b4987f959",
+                workflow,
+            )
+            self.assertIn(
+                "https://github.com/docker/compose/releases/download/"
+                "v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64",
+                workflow,
+            )
+            self.assertIn("sha256sum --check --strict -", workflow)
+            self.assertIn(
+                'test "$("${binary}" version --short)" = "${DOCKER_COMPOSE_VERSION}"',
+                workflow,
+            )
+            self.assertNotIn(
+                "docker compose -f compose.production.yaml config",
+                workflow,
+            )
 
 
 if __name__ == "__main__":
