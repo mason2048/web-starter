@@ -120,5 +120,5 @@ jobs:
           WEB_STARTER_PUBLIC_TLS_CERT_FILE: /run/secrets/web-starter-cert.pem
           WEB_STARTER_PUBLIC_TLS_KEY_FILE: /run/secrets/web-starter-key.pem
         run: |
-          docker compose -f compose.production.yaml config --format json > /tmp/web-starter-production-compose.json
+          docker compose -f compose.production.yaml config --no-normalize --format json > /tmp/web-starter-production-compose.json
           python3 -B scripts/production_compose_policy.py --compose-json /tmp/web-starter-production-compose.json
