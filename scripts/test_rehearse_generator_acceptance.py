@@ -86,6 +86,46 @@ class GeneratorAcceptanceTest(unittest.TestCase):
         with self.assertRaisesRegex(generator.GeneratorAcceptanceError, "outside"):
             generator._safe_inputs(self.namespace(forbidden_terms=inside_terms))
 
+    def test_local_immutable_image_accepts_docker_normalized_repository_digests(self) -> None:
+        cases = (
+            ("mysql:8.4@" + DIGEST, "mysql@" + DIGEST),
+            ("mysql:8.4@" + DIGEST, "docker.io/library/mysql@" + DIGEST),
+            ("docker.io/mysql:8.4@" + DIGEST, "mysql@" + DIGEST),
+            (
+                "registry.example:5000/team/mysql:8.4@" + DIGEST,
+                "registry.example:5000/team/mysql@" + DIGEST,
+            ),
+        )
+        for requested, observed in cases:
+            with self.subTest(requested=requested, observed=observed):
+                with mock.patch.object(
+                    generator,
+                    "_docker_json",
+                    return_value={"RepoDigests": [observed]},
+                ):
+                    generator._require_local_immutable_image(requested, "acceptance image")
+
+    def test_local_immutable_image_rejects_wrong_or_malformed_bindings(self) -> None:
+        requested = "mysql:8.4@" + DIGEST
+        cases = (
+            {"RepoDigests": ["redis@" + DIGEST]},
+            {"RepoDigests": ["mysql@sha256:" + "b" * 64]},
+            {"RepoDigests": ["mysql@" + DIGEST, None]},
+            {"RepoDigests": []},
+            {"RepoDigests": "mysql@" + DIGEST},
+        )
+        for document in cases:
+            with self.subTest(document=document):
+                with mock.patch.object(generator, "_docker_json", return_value=document):
+                    with self.assertRaisesRegex(
+                        generator.GeneratorAcceptanceError,
+                        "not locally bound",
+                    ):
+                        generator._require_local_immutable_image(
+                            requested,
+                            "acceptance image",
+                        )
+
     def test_registry_wait_retries_a_transient_remote_disconnect(self) -> None:
         class ReadyResponse:
             status = 200
