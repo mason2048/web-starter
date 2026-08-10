@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -160,6 +161,9 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         self.assertIn("--package-import-method=copy", WORKFLOW)
         self.assertIn('--store-dir "${PNPM_STORE_ROOT}"', WORKFLOW)
         self.assertIn('--virtual-store-dir "${PNPM_VIRTUAL_STORE}"', WORKFLOW)
+        self.assertIn("process.env.PNPM_VIRTUAL_STORE", WORKFLOW)
+        self.assertIn("privateDependencyRoots", WORKFLOW)
+        self.assertIn("resolved outside the private dependency roots", WORKFLOW)
         self.assertIn('"${PNPM_STORE_ROOT}/v3/files"', WORKFLOW)
         self.assertIn("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1", WORKFLOW)
         self.assertIn("@playwright/test/package.json').version", WORKFLOW)
@@ -190,7 +194,7 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             web = Path(temporary) / "web"
             node_modules = web / "node_modules"
-            pnpm = node_modules / ".pnpm"
+            pnpm = Path(temporary) / "pnpm-virtual-store"
             test_dependencies = pnpm / "@playwright+test@1.61.1" / "node_modules"
             playwright_dependencies = pnpm / "playwright@1.61.1" / "node_modules"
             core_dependencies = pnpm / "playwright-core@1.61.1" / "node_modules"
@@ -214,10 +218,7 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
 
             direct_scope = node_modules / "@playwright"
             direct_scope.mkdir(parents=True)
-            (direct_scope / "test").symlink_to(
-                Path("../.pnpm/@playwright+test@1.61.1/node_modules/@playwright/test"),
-                target_is_directory=True,
-            )
+            (direct_scope / "test").symlink_to(test_package, target_is_directory=True)
             (test_dependencies / "playwright").symlink_to(
                 Path("../../playwright@1.61.1/node_modules/playwright"),
                 target_is_directory=True,
@@ -232,6 +233,7 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
             result = subprocess.run(
                 ["node"],
                 cwd=web,
+                env={**os.environ, "PNPM_VIRTUAL_STORE": str(pnpm)},
                 input=script,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -240,6 +242,27 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
             )
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertEqual("1228", result.stdout)
+
+            escaped_package = Path(temporary) / "escaped" / "@playwright" / "test"
+            escaped_package.mkdir(parents=True)
+            (escaped_package / "package.json").write_text(
+                json.dumps({"name": "@playwright/test", "version": "1.61.1"}),
+                encoding="utf-8",
+            )
+            (direct_scope / "test").unlink()
+            (direct_scope / "test").symlink_to(escaped_package, target_is_directory=True)
+            escaped = subprocess.run(
+                ["node"],
+                cwd=web,
+                env={**os.environ, "PNPM_VIRTUAL_STORE": str(pnpm)},
+                input=script,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(0, escaped.returncode)
+            self.assertIn("resolved outside the private dependency roots", escaped.stderr)
 
     def test_policy_build_extract_and_upload_steps_are_fail_closed_and_ordered(self) -> None:
         self.assert_ordered(
