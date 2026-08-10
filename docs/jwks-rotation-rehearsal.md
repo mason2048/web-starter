@@ -31,7 +31,7 @@ producer 不接受 hook、Shell 字符串或自定义 Docker 子命令，并有�
 - 每次变更只执行固定的 `up --no-deps --force-recreate --wait app nginx mcp-public-nginx`；
 - 不执行 build、pull、down、remove、prune，也不删除任何 Docker 资源；
 - Token、Client Secret、私钥 JWK、HTTP Body 和 Session ID 不写入证据。临时 phase env 只存在于 0700 临时目录并在结束时删除；
-- 所有 0600 输入用 no-follow 文件描述符读取并核对前后文件身份；TLS 证书和私钥也先复制到本次 0700 临时目录，再交给专用 Compose 项目挂载；
+- Secret、env、JWK 和证据等 0600 输入用 no-follow 文件描述符读取并核对前后文件身份；TLS 证书和私钥的临时 bind 副本则固定为 0644、直接位于本次 0700 目录中，使 Linux 上固定 uid 101 的 Nginx 可读。副本不打印、不上传并在结束时删除；
 - 原始证据目录为仓库外 0700，且只能包含两个 0600 文件：JSON 报告和对应 SHA-256 文件。
 
 由于脚本会重建 app 和两个 Nginx 容器，它只能用于可丢弃的专用验收项目。producer 本身不删除项目；正式 runner 独占创建该项目，成功和失败路径都执行固定 `down --volumes --remove-orphans`，并确认项目标签下没有遗留容器、卷或网络后才允许继续。

@@ -167,6 +167,39 @@ class V1ToV2UpgradeHarnessTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def test_generated_tls_bind_sources_are_linux_readable_and_host_private(self) -> None:
+        runtime = upgrade.RuntimeContext(
+            self.root,
+            self.root / "runtime-tls",
+            upgrade.generate_resource_names(RUN_ID),
+            upgrade.Ports(18080, 18443, 18081),
+            upgrade.EvidenceState(),
+        )
+        runtime.runtime_root.mkdir(mode=0o700)
+
+        class TlsRunner:
+            def run(self, command, **_kwargs):
+                if "-keyout" in command:
+                    key = Path(command[command.index("-keyout") + 1])
+                    certificate = Path(command[command.index("-out") + 1])
+                    key.write_text("ephemeral key", encoding="ascii")
+                    certificate.write_text("ephemeral certificate", encoding="ascii")
+                else:
+                    truststore = Path(command[command.index("-keystore") + 1])
+                    truststore.write_bytes(b"ephemeral truststore")
+                return upgrade.CommandResult(0, b"", b"")
+
+        material = upgrade._generate_tls_material(
+            runtime,
+            TlsRunner(),  # type: ignore[arg-type]
+        )
+
+        self.assertEqual(0o700, (runtime.runtime_root / "tls").stat().st_mode & 0o777)
+        self.assertEqual(0o644, material["key"].stat().st_mode & 0o777)
+        self.assertEqual(0o644, material["certificate"].stat().st_mode & 0o777)
+        self.assertEqual(0o600, material["hosts"].stat().st_mode & 0o777)
+        self.assertEqual(0o600, material["truststore"].stat().st_mode & 0o777)
+
     @staticmethod
     def _http_response(
             status: int,

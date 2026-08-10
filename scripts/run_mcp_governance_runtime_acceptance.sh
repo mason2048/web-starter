@@ -617,7 +617,10 @@ openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 1 \
   -addext "subjectAltName=DNS:${public_hostname}" \
   -keyout "${certificate_root}/tls.key" \
   -out "${certificate_root}/tls.crt" >/dev/null 2>&1
-chmod 600 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"
+# Docker bind mounts preserve the host file mode on Linux. The public Nginx
+# image runs as uid 101, so its ephemeral bind-source copies must be readable
+# while the enclosing host directory remains private (0700).
+chmod 644 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"
 printf '127.0.0.1 %s %s\n' "${public_hostname}" "${private_hostname}" > "${hosts_file}"
 chmod 600 "${hosts_file}"
 

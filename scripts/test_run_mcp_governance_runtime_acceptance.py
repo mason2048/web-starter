@@ -164,6 +164,18 @@ def _preflight(
 
 
 class McpGovernanceRuntimeRunnerTest(unittest.TestCase):
+    def test_ephemeral_tls_bind_sources_are_linux_readable_inside_private_directory(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        child = (root / "scripts/run_mcp_governance_runtime_acceptance.sh").read_text(
+            encoding="utf-8"
+        )
+        readable = 'chmod 644 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"'
+        private = 'chmod 600 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"'
+
+        self.assertEqual(1, child.count(readable))
+        self.assertNotIn(private, child)
+        self.assertIn('mkdir -m 700 "${certificate_root}"', child)
+
     def test_bash_syntax_and_fixed_formal_wiring(self) -> None:
         root = Path(__file__).resolve().parents[1]
         child_path = root / "scripts/run_mcp_governance_runtime_acceptance.sh"
