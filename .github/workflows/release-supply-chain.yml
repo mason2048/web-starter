@@ -571,6 +571,30 @@ jobs:
             | sha256sum --check --strict -
           chmod 0755 "${binary}"
           test "$("${binary}" version --short)" = "${DOCKER_COMPOSE_VERSION}"
+          docker_config_root="${DOCKER_CONFIG:-${HOME}/.docker}"
+          if [[ "${docker_config_root}" != /* || -L "${docker_config_root}" ]]; then
+            echo "Docker configuration root must be an absolute non-symlink path" >&2
+            exit 1
+          fi
+          mkdir -p "${docker_config_root}"
+          if [[ "$(realpath "${docker_config_root}")" != "${docker_config_root}" ]]; then
+            echo "Docker configuration root must be canonical" >&2
+            exit 1
+          fi
+          plugin_root="${docker_config_root}/cli-plugins"
+          if [[ -L "${plugin_root}" ]]; then
+            echo "Docker CLI plugin root must not be a symlink" >&2
+            exit 1
+          fi
+          mkdir -p "${plugin_root}"
+          plugin="${plugin_root}/docker-compose"
+          if [[ -e "${plugin}" || -L "${plugin}" ]]; then
+            echo "Refusing to overwrite an existing Docker Compose user plugin" >&2
+            exit 1
+          fi
+          install -m 0755 "${binary}" "${plugin}"
+          cmp -s "${binary}" "${plugin}"
+          test "$(docker compose version --short)" = "${DOCKER_COMPOSE_VERSION}"
           printf 'binary=%s\n' "${binary}" >> "${GITHUB_OUTPUT}"
 
       - name: Expand and enforce the actual production Compose model

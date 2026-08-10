@@ -460,6 +460,55 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
                 workflow,
             )
 
+        release_compose_step_start = RELEASE_WORKFLOW.index(
+            "- name: Install pinned Docker Compose serializer"
+        )
+        release_compose_step_end = RELEASE_WORKFLOW.index(
+            "\n      - name:", release_compose_step_start + 1
+        )
+        release_compose_step = RELEASE_WORKFLOW[
+            release_compose_step_start:release_compose_step_end
+        ]
+        checksum_index = release_compose_step.index(
+            "sha256sum --check --strict -"
+        )
+        binary_version_index = release_compose_step.index(
+            'test "$("${binary}" version --short)" = "${DOCKER_COMPOSE_VERSION}"'
+        )
+        plugin_install_index = release_compose_step.index(
+            'install -m 0755 "${binary}" "${plugin}"'
+        )
+        docker_version_index = release_compose_step.index(
+            'test "$(docker compose version --short)" = "${DOCKER_COMPOSE_VERSION}"'
+        )
+        self.assertLess(checksum_index, binary_version_index)
+        self.assertLess(binary_version_index, plugin_install_index)
+        self.assertLess(plugin_install_index, docker_version_index)
+        self.assertIn(
+            'docker_config_root="${DOCKER_CONFIG:-${HOME}/.docker}"',
+            release_compose_step,
+        )
+        self.assertIn(
+            '[[ "${docker_config_root}" != /* || -L "${docker_config_root}" ]]',
+            release_compose_step,
+        )
+        self.assertIn(
+            '[[ "$(realpath "${docker_config_root}")" != "${docker_config_root}" ]]',
+            release_compose_step,
+        )
+        self.assertIn(
+            'plugin="${plugin_root}/docker-compose"',
+            release_compose_step,
+        )
+        self.assertIn(
+            '[[ -e "${plugin}" || -L "${plugin}" ]]',
+            release_compose_step,
+        )
+        self.assertIn(
+            'cmp -s "${binary}" "${plugin}"',
+            release_compose_step,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
