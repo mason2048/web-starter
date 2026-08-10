@@ -36,6 +36,10 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 VERSION = re.compile(
     r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$"
 )
+RELEASE_EVIDENCE_PATH = re.compile(
+    r"^release/evidence/v(?P<version>[0-9]+\.[0-9]+\.[0-9]+"
+    r"(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?)\.json$"
+)
 
 SHARED_BOUNDARY_FIXED_PATHS = frozenset({
     "web-starter-project/src/main/java/dev/webstarter/project/service/ProjectService.java",
@@ -86,6 +90,7 @@ EXPECTED_TOP_LEVEL_ENTRIES = frozenset({
     "mvnw",
     "mvnw.cmd",
     "pom.xml",
+    "release",
     "scripts",
     "security",
     "web-starter-admin",
@@ -451,6 +456,33 @@ def _validate_project_isolation(sources: Mapping[str, bytes]) -> None:
     top_level = {relative.split("/", 1)[0] for relative in paths}
     if top_level != EXPECTED_TOP_LEVEL_ENTRIES:
         raise SupplementalValidationError("candidate top-level inventory is not the fixed generic scaffold")
+
+    release_paths = sorted(relative for relative in paths if relative.startswith("release/"))
+    for relative in release_paths:
+        match = RELEASE_EVIDENCE_PATH.fullmatch(relative)
+        if match is None:
+            raise SupplementalValidationError(
+                f"release evidence inventory escaped its fixed boundary: {relative}"
+            )
+        try:
+            evidence = json.loads(sources[relative])
+        except (UnicodeDecodeError, json.JSONDecodeError) as exception:
+            raise SupplementalValidationError(
+                f"release evidence is not valid JSON: {relative}"
+            ) from exception
+        version = match.group("version")
+        release = evidence.get("release") if isinstance(evidence, dict) else None
+        if (
+            not isinstance(evidence, dict)
+            or evidence.get("schemaVersion") != 1
+            or not isinstance(release, dict)
+            or release.get("tag") != f"v{version}"
+            or release.get("version") != version
+            or not isinstance(evidence.get("suites"), dict)
+        ):
+            raise SupplementalValidationError(
+                f"release evidence identity differs from its versioned path: {relative}"
+            )
 
     root_pom = _xml_root(sources, "pom.xml")
     modules = tuple(

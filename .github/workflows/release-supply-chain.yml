@@ -603,12 +603,12 @@ jobs:
         working-directory: web-starter-web
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Require protected V1 reference-repository inputs
+      - name: Require protected public V1 reference-repository inputs
         shell: bash
         env:
           REFERENCE_REPOSITORY: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY }}
           REFERENCE_COMMIT: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
-          REFERENCE_TOKEN: ${{ secrets.WEB_STARTER_REFERENCE_REPOSITORY_TOKEN }}
+          CURRENT_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ ! "${REFERENCE_REPOSITORY}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
@@ -619,25 +619,62 @@ jobs:
             echo "WEB_STARTER_REFERENCE_REPOSITORY_COMMIT must be a protected full SHA-1" >&2
             exit 1
           fi
-          if [[ -z "${REFERENCE_TOKEN}" ]]; then
-            echo "WEB_STARTER_REFERENCE_REPOSITORY_TOKEN must be a protected read-only token" >&2
+          if [[ "${REFERENCE_REPOSITORY,,}" == "${CURRENT_REPOSITORY,,}" ]]; then
+            echo "V1 reference repository must be external to the release repository" >&2
             exit 1
           fi
 
-      - name: Checkout the protected V1 reference repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          repository: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY }}
-          ref: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
-          token: ${{ secrets.WEB_STARTER_REFERENCE_REPOSITORY_TOKEN }}
-          path: .release-reference-repository
-          fetch-depth: 1
-          fetch-tags: false
-          lfs: false
-          submodules: false
-          persist-credentials: false
+      - name: Checkout the public V1 reference repository anonymously
+        shell: bash
+        env:
+          REFERENCE_REPOSITORY: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY }}
+          REFERENCE_COMMIT: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}
+          GIT_TERMINAL_PROMPT: "0"
+          GIT_ASKPASS: /bin/false
+          GIT_CONFIG_NOSYSTEM: "1"
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_CONFIG_COUNT: "0"
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          reference_root="${GITHUB_WORKSPACE}/.release-reference-repository"
+          if [[ -e "${reference_root}" || -L "${reference_root}" ]]; then
+            echo "reference repository checkout path already exists" >&2
+            exit 1
+          fi
 
-      - name: Verify the protected V1 reference checkout
+          umask 077
+          metadata_file="$(mktemp "${RUNNER_TEMP}/web-starter-reference-metadata.XXXXXX")"
+          trap 'rm -f "${metadata_file}"' EXIT
+          curl --disable --fail --silent --show-error \
+            --proto '=https' \
+            --tlsv1.2 \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --output "${metadata_file}" \
+            "https://api.github.com/repos/${REFERENCE_REPOSITORY}"
+          if ! jq -e --arg repository "${REFERENCE_REPOSITORY}" '
+                ((.full_name | ascii_downcase) == ($repository | ascii_downcase))
+                and .private == false
+                and .visibility == "public"
+              ' "${metadata_file}" >/dev/null; then
+            echo "V1 reference repository must be publicly visible" >&2
+            exit 1
+          fi
+
+          unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+            GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR SSH_ASKPASS
+          git init --quiet "${reference_root}"
+          git -C "${reference_root}" remote add origin \
+            "https://github.com/${REFERENCE_REPOSITORY}.git"
+          git -C "${reference_root}" fetch --quiet --no-tags --depth=1 \
+            origin "${REFERENCE_COMMIT}"
+          git -C "${reference_root}" checkout --quiet --detach "${REFERENCE_COMMIT}"
+          git -C "${reference_root}" remote remove origin
+          rm -f "${metadata_file}"
+          trap - EXIT
+
+      - name: Verify the public V1 reference checkout
         shell: bash
         env:
           REFERENCE_COMMIT: ${{ vars.WEB_STARTER_REFERENCE_REPOSITORY_COMMIT }}

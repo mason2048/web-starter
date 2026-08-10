@@ -1173,13 +1173,24 @@ class ReleaseRuntimeAcceptanceTest(unittest.TestCase):
             "AC40_DEPENDENCY_SEED_SHA256: ${{ steps.release_environment.outputs.seed_sha256 }}",
             '--dependency-seed "${AC40_DEPENDENCY_SEED}"',
             '--expected-dependency-seed-sha256 "${AC40_DEPENDENCY_SEED_SHA256}"',
-            "Require protected V1 reference-repository inputs",
+            "Require protected public V1 reference-repository inputs",
             "WEB_STARTER_REFERENCE_REPOSITORY",
             "WEB_STARTER_REFERENCE_REPOSITORY_COMMIT",
-            "WEB_STARTER_REFERENCE_REPOSITORY_TOKEN",
-            "Checkout the protected V1 reference repository",
-            "path: .release-reference-repository",
-            "persist-credentials: false",
+            "CURRENT_REPOSITORY: ${{ github.repository }}",
+            '[[ "${REFERENCE_REPOSITORY,,}" == "${CURRENT_REPOSITORY,,}" ]]',
+            "V1 reference repository must be external to the release repository",
+            "Checkout the public V1 reference repository anonymously",
+            '"https://api.github.com/repos/${REFERENCE_REPOSITORY}"',
+            'and .private == false',
+            'and .visibility == "public"',
+            '"https://github.com/${REFERENCE_REPOSITORY}.git"',
+            "fetch --quiet --no-tags --depth=1",
+            'origin "${REFERENCE_COMMIT}"',
+            'checkout --quiet --detach "${REFERENCE_COMMIT}"',
+            "Verify the public V1 reference checkout",
+            'rev-parse HEAD^{commit})" != "${REFERENCE_COMMIT}"',
+            'status --porcelain=v1 --untracked-files=all',
+            'ls-files --stage | awk \'$1 == "160000"',
             "Independently evaluate V1 AC-40 project isolation",
             "validate_v1_project_isolation_evidence.py",
             "--v1-project-isolation-forbidden-terms",
@@ -1198,8 +1209,19 @@ class ReleaseRuntimeAcceptanceTest(unittest.TestCase):
             "WEB_STARTER_AC40_DEPENDENCY_SEED_ARCHIVE_SHA256",
             "WEB_STARTER_AC40_DEPENDENCY_SEED_SHA256",
             "WEB_STARTER_AC40_DEPENDENCY_SEED_PRODUCER_SHA",
+            "WEB_STARTER_REFERENCE_REPOSITORY_TOKEN",
         ):
             self.assertNotIn(forbidden, workflow)
+
+        anonymous_checkout = workflow.index(
+            "      - name: Checkout the public V1 reference repository anonymously"
+        )
+        verify_reference = workflow.index(
+            "      - name: Verify the public V1 reference checkout"
+        )
+        reference_block = workflow[anonymous_checkout:verify_reference]
+        for forbidden in ("${{ secrets.", "Authorization:", "token:", "actions/checkout@"):
+            self.assertNotIn(forbidden, reference_block)
 
         guard = workflow.index("      - name: Verify protected release Environment")
         authorize = workflow.index(

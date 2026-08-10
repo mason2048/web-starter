@@ -45,9 +45,8 @@ python3 -B scripts/validate_v1_project_isolation_evidence.py \
 
 - Variable `WEB_STARTER_REFERENCE_REPOSITORY`：`owner/repository`；
 - Variable `WEB_STARTER_REFERENCE_REPOSITORY_COMMIT`：固定的 40 位 commit；
-- Secret `WEB_STARTER_REFERENCE_REPOSITORY_TOKEN`：仅对该仓库具有只读 contents 权限，且尽量设置短有效期；
 - Secret `WEB_STARTER_FORBIDDEN_TERMS`：逐行维护禁用词。
 
-发布工作流把参考仓库检出到独立嵌套目录，禁用凭据持久化，拒绝 Git link、dirty checkout 和 commit 漂移。候选验证仍在 `${RUNNER_TEMP}` 的 detached worktree 中进行，因此参考仓库不会进入候选源码、镜像构建上下文或发布 Artifact。
+参考仓库必须是公开 GitHub 仓库，且不得与当前发布仓库同名（大小写不敏感）。发布工作流用匿名 REST 请求核对 public 可见性，然后在隔离 Git 配置且禁用凭据提示的环境中，通过匿名 HTTPS 只拉取受保护 Variable 指定的 40 位 commit。此过程不要求或传入 PAT、GitHub App Token 或 `github.token`。参考仓库仍检出到独立嵌套目录，并拒绝 Git link、dirty checkout 和 commit 漂移。候选验证仍在 `${RUNNER_TEMP}` 的 detached worktree 中进行，因此参考仓库不会进入候选源码、镜像构建上下文或发布 Artifact。
 
 该证据证明所绑定候选和本次验证期间的工程隔离，不证明参考仓库本身的业务正确性，也不替代历史 V1 验收记录、浏览器验收、运行时验收或 V2 恢复演练。

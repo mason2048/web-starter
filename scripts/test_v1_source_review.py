@@ -114,6 +114,22 @@ class V1SourceReviewTest(unittest.TestCase):
             validators._validate_project_isolation(sources)
 
         sources.pop("copied-business/pom.xml")
+        sources["release/run.sh"] = b"#!/bin/sh\n"
+        with self.assertRaisesRegex(
+            validators.SupplementalValidationError, "release evidence inventory"
+        ):
+            validators._validate_project_isolation(sources)
+        sources.pop("release/run.sh")
+
+        current_release = "release/evidence/v2.0.0.json"
+        self.assertIn(current_release, sources)
+        sources["release/evidence/v2.0.1.json"] = sources[current_release]
+        with self.assertRaisesRegex(
+            validators.SupplementalValidationError, "identity differs"
+        ):
+            validators._validate_project_isolation(sources)
+        sources.pop("release/evidence/v2.0.1.json")
+
         source_path = next(
             relative for relative in sources
             if relative.endswith(".java") and "/src/main/java/dev/webstarter/" in relative
