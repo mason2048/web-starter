@@ -278,6 +278,11 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
         build = WORKFLOW.index("Build source-bound deterministic AC40 dependency seed")
         policy_block = WORKFLOW[policy:build]
         self.assertIn(
+            "python3 -B -m unittest discover -s scripts -p 'test_repository_policy.py'",
+            policy_block,
+        )
+        self.assertNotIn("python3 -B -m unittest scripts.test_repository_policy", policy_block)
+        self.assertIn(
             "FORBIDDEN_TERMS_SECRET: ${{ secrets.WEB_STARTER_FORBIDDEN_TERMS }}",
             policy_block,
         )

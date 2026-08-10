@@ -507,7 +507,7 @@ jobs:
               target.unlink(missing_ok=True)
               raise SystemExit("forbidden-term file is not a private regular file")
           PY
-          python3 -B -m unittest scripts.test_repository_policy
+          python3 -B -m unittest discover -s scripts -p 'test_repository_policy.py'
           python3 -B scripts/repository_policy.py secrets
           python3 -B scripts/repository_policy.py forbidden \
             --forbidden-terms-file "${forbidden_terms_file}"
