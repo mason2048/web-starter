@@ -799,7 +799,7 @@ jobs:
             --argjson artifactId "${ARTIFACT_ID}" \
             --argjson workflowRunId "${GITHUB_RUN_ID}" \
             '{aggregateSha256:$aggregateSha256,archiveSha256:$archiveSha256,artifactId:$artifactId,workflowRunId:$workflowRunId}')"
-          if [[ ! "${anchor_bundle}" =~ ^\{"aggregateSha256":"[0-9a-f]{64}","archiveSha256":"[0-9a-f]{64}","artifactId":[1-9][0-9]*,"workflowRunId":[1-9][0-9]*\}$ ]]; then
+          if [[ ! "${anchor_bundle}" =~ ^\{\"aggregateSha256\":\"[0-9a-f]{64}\",\"archiveSha256\":\"[0-9a-f]{64}\",\"artifactId\":[1-9][0-9]*,\"workflowRunId\":[1-9][0-9]*\}$ ]]; then
             echo "canonical release Environment anchor bundle is invalid" >&2
             exit 1
           fi
