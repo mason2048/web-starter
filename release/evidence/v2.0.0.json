@@ -1,0 +1,705 @@
+{
+  "schemaVersion": 1,
+  "release": {
+    "tag": "v2.0.0",
+    "version": "2.0.0"
+  },
+  "suites": {
+    "v1": {
+      "results": [
+        {
+          "id": "AC-01",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-02",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-03",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-04",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-05",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-06",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-07",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-08",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-09",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-10",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-11",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-12",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-13",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-14",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-15",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-16",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-17",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-18",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-19",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-20",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-21",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-22",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-23",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-24",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-25",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-26",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-27",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-28",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-29",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-30",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-31",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-32",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-33",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-34",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-35",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-36",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-37",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-38",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-39",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-40",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-41",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        },
+        {
+          "id": "AC-42",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v1-acceptance-baseline.md#sha256=aa9ef7247246165c451e6910db6da167d1385b6e14f3f65fd72a7705e8263994"
+          ]
+        }
+      ]
+    },
+    "v2": {
+      "results": [
+        {
+          "id": "V2-AC-01",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-02",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-03",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-04",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-05",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-06",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-07",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-08",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-09",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-10",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-11",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-12",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-13",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-14",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-15",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-16",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-17",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-18",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-19",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-20",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-21",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-22",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-23",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-24",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-25",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-26",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-27",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-28",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-29",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-30",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-31",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-32",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-33",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-34",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-35",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-36",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-37",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-38",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-39",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-40",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-41",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-42",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-43",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        },
+        {
+          "id": "V2-AC-44",
+          "status": "PASS",
+          "observedAt": "2026-08-10T06:00:00Z",
+          "evidence": [
+            "repo://docs/acceptance/v2-acceptance-baseline.md#sha256=9a70adbe9c851cd56ecfc873ef4ac5dd0e8857c0ebc2eb8a720b57b1b28c4a19"
+          ]
+        }
+      ]
+    }
+  }
+}
