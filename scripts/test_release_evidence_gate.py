@@ -4645,6 +4645,7 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
         )
         security = workflow.index("Enforce Critical, High-exception and secret policy")
         compose = workflow.index("Expand and enforce the actual production Compose model")
+        browser = workflow.index("Install the pinned release browser")
         runtime = workflow.index("Run immutable-image empty-volume full-stack acceptance")
         evidence = workflow.index("Build and verify complete release evidence")
         immutable = workflow.index("Resolve release image tags without overwrite")
@@ -4652,6 +4653,10 @@ class ReleaseEvidenceGateTest(unittest.TestCase):
         upload = workflow.index("Upload SBOM and sanitised release evidence")
         self.assertLess(security, evidence)
         self.assertLess(security, compose)
+        self.assertIn(
+            "WEB_STARTER_GIT_COMMIT: ${{ github.sha }}",
+            workflow[compose:browser],
+        )
         self.assertLess(compose, evidence)
         self.assertLess(compose, runtime)
         self.assertLess(runtime, evidence)
