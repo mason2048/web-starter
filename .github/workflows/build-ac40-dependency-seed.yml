@@ -357,15 +357,23 @@ jobs:
           const path = require('node:path')
 
           const nodeModulesRoot = fs.realpathSync(path.join(process.cwd(), 'node_modules'))
-          const insideNodeModules = (candidate, label) => {
+          if (!process.env.PNPM_VIRTUAL_STORE || !path.isAbsolute(process.env.PNPM_VIRTUAL_STORE)) {
+            throw new Error('PNPM_VIRTUAL_STORE must be an absolute private root')
+          }
+          const virtualStoreRoot = fs.realpathSync(process.env.PNPM_VIRTUAL_STORE)
+          const privateDependencyRoots = [nodeModulesRoot, virtualStoreRoot]
+          const insidePrivateDependencyRoots = (candidate, label) => {
             const resolved = fs.realpathSync(candidate)
-            if (resolved !== nodeModulesRoot && !resolved.startsWith(`${nodeModulesRoot}${path.sep}`)) {
-              throw new Error(`${label} resolved outside the private node_modules tree`)
+            const insidePrivateRoot = privateDependencyRoots.some(
+              (root) => resolved === root || resolved.startsWith(`${root}${path.sep}`),
+            )
+            if (!insidePrivateRoot) {
+              throw new Error(`${label} resolved outside the private dependency roots`)
             }
             return resolved
           }
           const readPackage = (candidate, expectedName) => {
-            const packagePath = insideNodeModules(candidate, `${expectedName} package`)
+            const packagePath = insidePrivateDependencyRoots(candidate, `${expectedName} package`)
             const document = JSON.parse(fs.readFileSync(packagePath, 'utf8'))
             if (document.name !== expectedName || document.version !== '1.61.1') {
               throw new Error(`${expectedName} package identity is not exact`)
@@ -387,7 +395,7 @@ jobs:
             }),
             'playwright-core',
           )
-          const browsersPath = insideNodeModules(
+          const browsersPath = insidePrivateDependencyRoots(
             path.join(path.dirname(corePackage), 'browsers.json'),
             'playwright-core browsers.json',
           )
