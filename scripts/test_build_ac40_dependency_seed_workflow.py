@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import tempfile
 import textwrap
@@ -357,6 +358,42 @@ class Ac40DependencySeedWorkflowContractTest(unittest.TestCase):
             "'{aggregateSha256:$aggregateSha256,archiveSha256:$archiveSha256,artifactId:$artifactId,workflowRunId:$workflowRunId}'",
             WORKFLOW,
         )
+
+    def test_handoff_anchor_guard_executes_against_canonical_json(self) -> None:
+        prefix = 'if [[ ! "${anchor_bundle}" =~ '
+        suffix = " ]]; then"
+        guard = next(
+            line.strip()
+            for line in WORKFLOW.splitlines()
+            if line.strip().startswith(prefix)
+        )
+        self.assertTrue(guard.endswith(suffix))
+        expression = guard[len(prefix):-len(suffix)]
+        canonical_document = {
+            "aggregateSha256": "a" * 64,
+            "archiveSha256": "b" * 64,
+            "artifactId": 9052893992,
+            "workflowRunId": 31362338049,
+        }
+        canonical = json.dumps(
+            canonical_document,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+        def accepted(value: str) -> bool:
+            script = (
+                f"anchor_bundle={shlex.quote(value)}\n"
+                f'if [[ "${{anchor_bundle}}" =~ {expression} ]]; then exit 0; fi\n'
+                "exit 1\n"
+            )
+            return subprocess.run(["bash", "-c", script], check=False).returncode == 0
+
+        self.assertTrue(accepted(canonical))
+        self.assertFalse(accepted(canonical + "\n"))
+        self.assertFalse(accepted(canonical.replace("a" * 64, "A" * 64)))
+        self.assertFalse(accepted(canonical.replace('"artifactId":9052893992', '"artifactId":"9052893992"')))
+        self.assertFalse(accepted(canonical[:-1] + ',"unexpected":true}'))
 
     def test_ci_checks_full_history_workflow_syntax_and_release_commit(self) -> None:
         self.assertEqual(4, CI_WORKFLOW.count("fetch-depth: 0"))
