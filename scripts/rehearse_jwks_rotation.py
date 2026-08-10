@@ -198,7 +198,12 @@ def _inside(path: Path, parent: Path) -> bool:
         return False
 
 
-def _private_file(path: Path, label: str, maximum: int = MAX_JSON_BYTES) -> tuple[Path, bytes]:
+def _mode_file(
+    path: Path,
+    label: str,
+    expected_mode: int,
+    maximum: int = MAX_JSON_BYTES,
+) -> tuple[Path, bytes]:
     expanded = path.expanduser().absolute()
     if expanded.is_symlink() or not expanded.is_file():
         raise RehearsalError(f"{label} must be a real regular file")
@@ -221,16 +226,47 @@ def _private_file(path: Path, label: str, maximum: int = MAX_JSON_BYTES) -> tupl
         os.close(descriptor)
     after = resolved.stat()
     identities = {
-        (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, stat.S_IMODE(item.st_mode))
+        (
+            item.st_dev,
+            item.st_ino,
+            item.st_size,
+            item.st_uid,
+            item.st_gid,
+            item.st_mtime_ns,
+            item.st_ctime_ns,
+            stat.S_IMODE(item.st_mode),
+        )
         for item in (before, opened, after)
     }
     if len(identities) != 1 or len(payload) != opened.st_size:
         raise RehearsalError(f"{label} changed while being read")
     if not stat.S_ISREG(opened.st_mode) or opened.st_size <= 0 or opened.st_size > maximum:
         raise RehearsalError(f"{label} has an invalid size")
-    if os.name == "posix" and stat.S_IMODE(opened.st_mode) != 0o600:
-        raise RehearsalError(f"{label} must have mode 0600")
+    if os.name == "posix" and stat.S_IMODE(opened.st_mode) != expected_mode:
+        raise RehearsalError(f"{label} must have mode {expected_mode:04o}")
     return resolved, bytes(payload)
+
+
+def _private_file(path: Path, label: str, maximum: int = MAX_JSON_BYTES) -> tuple[Path, bytes]:
+    return _mode_file(path, label, 0o600, maximum)
+
+
+def _nginx_tls_bind_file(path: Path, label: str) -> tuple[Path, bytes]:
+    """Read one ephemeral TLS bind source usable by fixed uid 101 on Linux."""
+    expanded_parent = path.expanduser().absolute().parent
+    if expanded_parent.is_symlink() or not expanded_parent.is_dir():
+        raise RehearsalError(f"{label} parent must be a real private directory")
+    parent = expanded_parent.resolve(strict=True)
+    parent_stat = parent.stat()
+    if os.name == "posix":
+        if parent_stat.st_uid != os.geteuid() or stat.S_IMODE(parent_stat.st_mode) != 0o700:
+            raise RehearsalError(f"{label} parent must be owned by the current user with mode 0700")
+    resolved, payload = _mode_file(path, label, 0o644, maximum=128 * 1024)
+    if resolved.parent != parent:
+        raise RehearsalError(f"{label} must remain directly inside its private directory")
+    if os.name == "posix" and resolved.stat().st_uid != os.geteuid():
+        raise RehearsalError(f"{label} must be owned by the current user")
+    return resolved, payload
 
 
 def _strict_json(payload: bytes, label: str) -> dict[str, Any]:
@@ -721,7 +757,7 @@ def _validate_runtime_env_files(
             raise RehearsalError(f"{name} must be an explicit unprivileged acceptance port")
     tls_payloads: dict[str, bytes] = {}
     for name in ("WEB_STARTER_PUBLIC_TLS_CERT_FILE", "WEB_STARTER_PUBLIC_TLS_KEY_FILE"):
-        resolved, payload = _private_file(Path(values[name]), name, maximum=128 * 1024)
+        resolved, payload = _nginx_tls_bind_file(Path(values[name]), name)
         if _inside(resolved, repository):
             raise RehearsalError(f"{name} must remain outside the Git candidate")
         tls_payloads[name] = payload
@@ -798,6 +834,44 @@ def _write_private_bytes(path: Path, payload: bytes) -> None:
         os.write(descriptor, payload)
     finally:
         os.close(descriptor)
+
+
+def _write_nginx_tls_bind_bytes(path: Path, payload: bytes) -> None:
+    """Create a Linux-readable TLS bind copy under an owner-only directory."""
+    parent = path.parent
+    if parent.is_symlink() or not parent.is_dir():
+        raise RehearsalError("TLS bind snapshot parent must be a real private directory")
+    parent_stat = parent.stat()
+    if os.name == "posix":
+        if parent_stat.st_uid != os.geteuid() or stat.S_IMODE(parent_stat.st_mode) != 0o700:
+            raise RehearsalError(
+                "TLS bind snapshot parent must be owned by the current user with mode 0700"
+            )
+    if path.exists() or path.is_symlink():
+        raise RehearsalError("TLS bind snapshot already exists")
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        os.fchmod(descriptor, 0o644)
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise RehearsalError("TLS bind snapshot could not be written completely")
+            remaining = remaining[written:]
+        opened = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    after = path.stat()
+    if (
+        not stat.S_ISREG(after.st_mode)
+        or (opened.st_dev, opened.st_ino, opened.st_size)
+        != (after.st_dev, after.st_ino, after.st_size)
+        or after.st_size != len(payload)
+        or (os.name == "posix" and stat.S_IMODE(after.st_mode) != 0o644)
+        or (os.name == "posix" and after.st_uid != os.geteuid())
+    ):
+        path.unlink(missing_ok=True)
+        raise RehearsalError("TLS bind snapshot failed its post-write validation")
 
 
 def _write_env_values(path: Path, values: Mapping[str, str]) -> None:
@@ -1589,7 +1663,7 @@ def rehearse(args: argparse.Namespace) -> dict[str, Any]:
             ("WEB_STARTER_PUBLIC_TLS_KEY_FILE", "tls-key.pem"),
         ):
             snapshot_path = work / filename
-            _write_private_bytes(snapshot_path, tls_payloads[name])
+            _write_nginx_tls_bind_bytes(snapshot_path, tls_payloads[name])
             env_values[name] = str(snapshot_path)
         base_env_snapshot = work / "base.env"
         _write_env_values(base_env_snapshot, env_values)

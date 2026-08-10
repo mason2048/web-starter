@@ -64,7 +64,9 @@ openssl req -x509 -newkey rsa:3072 -sha256 -days 7 -nodes \
   -out "$WEB_STARTER_LOCAL_TLS_DIR/fullchain.pem" \
   -subj '/CN=mcp.localhost' \
   -addext 'subjectAltName=DNS:mcp.localhost'
-chmod 600 "$WEB_STARTER_LOCAL_TLS_DIR/privkey.pem"
+chmod 644 \
+  "$WEB_STARTER_LOCAL_TLS_DIR/privkey.pem" \
+  "$WEB_STARTER_LOCAL_TLS_DIR/fullchain.pem"
 
 export WEB_STARTER_PUBLIC_TLS_CERT_FILE="$WEB_STARTER_LOCAL_TLS_DIR/fullchain.pem"
 export WEB_STARTER_PUBLIC_TLS_KEY_FILE="$WEB_STARTER_LOCAL_TLS_DIR/privkey.pem"
@@ -88,6 +90,8 @@ curl --fail --silent --show-error \
 
 使用独立的 `mcp.localhost` 是为了避免公网入口的 HSTS 影响私有 `http://localhost:8088`。现代浏览器通常会把 `.localhost` 解析到回环地址；若本机环境不支持，应配置仅本机可见的 hosts 记录，不能改用公网 DNS。
 
+上面的 `0644` 只用于临时自签证书的 Docker bind-source 副本：宿主父目录仍为当前用户独占的 `0700`，因此其他宿主用户无法遍历读取；容器内固定的非 root Nginx 用户 `101` 则可以读取挂载文件。该目录不得复用于生产密钥，验收结束后应删除。
+
 本地 `.env` 可以保留 `WEB_STARTER_COOKIE_SECURE=false` 以便同时使用私有 HTTP 管理端；公网 Nginx 仍会为 `WEB_STARTER_SESSION` 和 `XSRF-TOKEN` 强制添加 `Secure`。生产环境必须同时设置 `WEB_STARTER_COOKIE_SECURE=true`，不能依赖这一条边缘补偿。
 
 验收时至少分别执行：私有入口 PAT 调用成功、公网入口同一 PAT 返回 401、公网 Authorization Code + PKCE 调用成功、公网 Client Credentials 调用成功。MCP 客户端必须显式信任该本地证书，不能在生产使用 `--insecure` 或关闭 TLS 校验。
@@ -101,7 +105,7 @@ curl --fail --silent --show-error \
 3. 把 `WEB_STARTER_PUBLIC_MCP_PORT` 设为正式监听端口（通常为 443），通过防火墙只开放公网 MCP 入口。`WEB_STARTER_HTTP_BIND_ADDRESS` 默认且推荐使用 `127.0.0.1`；确需跨主机回源时，只能填写已由主机防火墙、路由和上游访问控制共同约束的 RFC1918 地址或 IPv6 ULA。生产策略拒绝空值、`0.0.0.0`、`::`、主机名和公网 IP，私有 8088 入口不得发布到公网。
 4. 私有管理端也必须通过组织内受信 HTTPS 入口访问。公网 DNS、负载均衡和防火墙不得回源到私有入口；否则长期令牌边界失效。
 5. 如果公网 Nginx 前还有负载均衡器，先以明确 CIDR 配置 `set_real_ip_from`/`real_ip_header`，再使用真实客户端地址；禁止直接信任任意客户端发送的 `X-Forwarded-*`。
-6. App 与两个 Nginx 容器强制使用固定数字非 root 用户，根文件系统只读，只允许受控 `/tmp` tmpfs。TLS 文件必须对 Nginx 的 `101:101` 只读可读；两个源文件必须已存在，Compose 使用 `bind.create_host_path:false`，不会把拼错或缺失的文件静默创建成目录。在 Linux 主机上由部署系统设置精确 owner/mode，不能改成全局可写来绕过权限问题。
+6. App 与两个 Nginx 容器强制使用固定数字非 root 用户，根文件系统只读，只允许受控 `/tmp` tmpfs。TLS 文件必须对 Nginx 的 `101:101` 只读可读；两个源文件必须已存在，Compose 使用 `bind.create_host_path:false`，不会把拼错或缺失的文件静默创建成目录。在 Linux 主机上应由部署系统把真实私钥设置为 `101:101` 所有并使用 `0400`（证书可使用 `0440`），不能把生产私钥改成全局可读或全局可写来绕过权限问题。
 7. 生产 Compose 的五个服务、两个网络、服务入网关系、命令、健康探针、端口和挂载均为固定白名单；不允许调试 Sidecar、设备/GPU、host user/cgroup/IPC/PID/network namespace、未批准的 `security_opt`、生命周期命令钩子、`volumes_from`、Compose config/secret 或额外 tmpfs。挂载仅允许 MySQL/Redis 命名数据卷及公网 Nginx 的两个只读 TLS 文件；不得挂载 Docker Socket，也不能以“只读”为理由增加宿主文件。
 8. 通过密码管理系统分别注入 `WEB_STARTER_MANAGEMENT_USERNAME` 与至少 32 个随机字符的 `WEB_STARTER_MANAGEMENT_PASSWORD`。生产 Compose 和应用启动校验都会拒绝缺失、弱值、占位值、Web 管理员同名或与其他应用秘密复用的配置。
 

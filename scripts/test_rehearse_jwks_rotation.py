@@ -178,13 +178,14 @@ class JwksRotationProducerTest(unittest.TestCase):
         self.assertEqual(base["WEB_STARTER_DB_PASSWORD"], lines["WEB_STARTER_DB_PASSWORD"])
         self.assertEqual(0o600, target.stat().st_mode & 0o777)
 
-    def test_runtime_environment_requires_loopback_digest_images_and_private_tls_files(self) -> None:
+    def test_runtime_environment_requires_loopback_digest_images_and_linux_tls_bind_files(self) -> None:
         cert = self.root / "tls.crt"
         key = self.root / "tls.key"
         cert.write_text("certificate fixture")
         key.write_text("private fixture")
-        cert.chmod(0o600)
-        key.chmod(0o600)
+        self.root.chmod(0o700)
+        cert.chmod(0o644)
+        key.chmod(0o644)
         values = {
             "WEB_STARTER_APP_IMAGE": "registry.invalid/app",
             "WEB_STARTER_APP_DIGEST": "sha256:" + "a" * 64,
@@ -214,6 +215,26 @@ class JwksRotationProducerTest(unittest.TestCase):
         controlled["DOCKER_HOST"] = "tcp://example.invalid:2375"
         with self.assertRaisesRegex(ac26.RehearsalError, "control variables"):
             ac26._validate_runtime_env_files(controlled, repository)
+
+        key.chmod(0o600)
+        with self.assertRaisesRegex(ac26.RehearsalError, "mode 0644"):
+            ac26._validate_runtime_env_files(values, repository)
+
+    def test_tls_snapshot_is_0644_only_below_an_owner_only_directory(self) -> None:
+        private = self.root / "private"
+        private.mkdir(mode=0o700)
+        target = private / "tls-key.pem"
+
+        ac26._write_nginx_tls_bind_bytes(target, b"ephemeral TLS key")
+
+        self.assertEqual(b"ephemeral TLS key", target.read_bytes())
+        self.assertEqual(0o644, target.stat().st_mode & 0o777)
+        self.assertEqual(0o700, private.stat().st_mode & 0o777)
+
+        exposed = self.root / "exposed"
+        exposed.mkdir(mode=0o755)
+        with self.assertRaisesRegex(ac26.RehearsalError, "mode 0700"):
+            ac26._write_nginx_tls_bind_bytes(exposed / "tls-key.pem", b"key")
 
     def test_compose_controller_has_fixed_no_hook_no_pull_no_build_contract(self) -> None:
         app = ac26.AppIdentity(

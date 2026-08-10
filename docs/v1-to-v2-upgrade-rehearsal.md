@@ -179,7 +179,7 @@ canonical aggregate 不一致都会在启动 AC40 容器前失败；发布工作
 
 ## 资源和秘密边界
 
-- 私密 runtime 目录为 0700，文件为 0600；其中可含密码、Cookie、Token、Client Secret 和私钥；PKCE code/verifier/state 不持久化。
+- 私密 runtime 目录为 0700；密码、Cookie、Token、Client Secret、OAuth 私钥和证据文件保持 0600，PKCE code/verifier/state 不持久化。只有给固定 uid 101 Nginx 只读挂载的临时 TLS bind 副本为 0644，且始终直接位于该 0700 目录内、不打印、不上传并在结束时删除。
 - 对外证据只含状态、稳定 detail code、数量和 SHA-256；保存前做 secret-shaped 扫描。
 - Container、Volume、Network 必须同时带 `dev.webstarter.upgrade=v1-to-v2`、随机 run label 和 Compose project label，删除前逐个 inspect。
 - V1 和 V2 App/Nginx 构建镜像都必须带 owner/run/role 三个镜像 label；V2 镜像还必须带等于冻结候选 commit 的 OCI revision。

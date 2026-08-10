@@ -2003,8 +2003,11 @@ def _generate_tls_material(
         label="generate-tls-certificate",
         timeout=120,
     )
-    private.chmod(0o600)
-    certificate.chmod(0o600)
+    # Docker bind mounts preserve host modes on Linux. These are short-lived
+    # copies inside a 0700 runtime directory and must be readable by the fixed
+    # non-root Nginx uid (101) in the public ingress container.
+    private.chmod(0o644)
+    certificate.chmod(0o644)
     hosts = tls / "hosts"
     write_private(
         hosts,

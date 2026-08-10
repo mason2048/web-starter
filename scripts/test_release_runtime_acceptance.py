@@ -143,6 +143,21 @@ def _create_runtime_report_candidate(
 
 
 class ReleaseRuntimeAcceptanceTest(unittest.TestCase):
+    def test_ephemeral_tls_bind_sources_are_linux_readable_inside_private_directory(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        runner = (root / "scripts/run_release_runtime_acceptance.sh").read_text(
+            encoding="utf-8"
+        )
+        readable = 'chmod 644 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"'
+        private = 'chmod 600 "${certificate_root}/tls.key" "${certificate_root}/tls.crt"'
+
+        self.assertEqual(1, runner.count(readable))
+        self.assertNotIn(private, runner)
+        self.assertIn(
+            'chmod 700 "${runtime_root}" "${certificate_root}"',
+            runner,
+        )
+
     def test_identity_lifecycle_refreshes_read_pat_for_formal_and_unified_consumers(self) -> None:
         root = Path(__file__).resolve().parents[1]
         runner = (root / "scripts/run_release_runtime_acceptance.sh").read_text(
