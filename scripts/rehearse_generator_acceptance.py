@@ -514,10 +514,46 @@ def _docker_json(command: Sequence[str], label: str) -> dict[str, Any]:
     return documents[0]
 
 
+def _canonical_repository_digest(reference: str) -> tuple[str, str] | None:
+    if IMMUTABLE_IMAGE.fullmatch(reference) is None:
+        return None
+    repository, digest = reference.rsplit("@", 1)
+    last_slash = repository.rfind("/")
+    last_colon = repository.rfind(":")
+    if last_colon > last_slash:
+        repository = repository[:last_colon]
+    components = repository.split("/")
+    if not components or any(not component for component in components):
+        return None
+    first = components[0]
+    if len(components) == 1:
+        components = ["docker.io", "library", first]
+    elif "." not in first and ":" not in first and first != "localhost":
+        components = ["docker.io", *components]
+    elif first == "index.docker.io":
+        components[0] = "docker.io"
+    if components[0] == "docker.io" and len(components) == 2:
+        components.insert(1, "library")
+    return "/".join(components), digest
+
+
 def _require_local_immutable_image(reference: str, label: str) -> None:
     document = _docker_json(["docker", "image", "inspect", reference], label)
     repo_digests = document.get("RepoDigests")
-    if not isinstance(repo_digests, list) or reference not in repo_digests:
+    requested = _canonical_repository_digest(reference)
+    observed: set[tuple[str, str]] = set()
+    if isinstance(repo_digests, list):
+        for value in repo_digests:
+            parsed = (
+                _canonical_repository_digest(value)
+                if isinstance(value, str)
+                else None
+            )
+            if parsed is None:
+                observed.clear()
+                break
+            observed.add(parsed)
+    if requested is None or requested not in observed:
         raise GeneratorAcceptanceError(f"{label} is not locally bound to the requested digest", 2)
 
 
