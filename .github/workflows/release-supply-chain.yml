@@ -581,6 +581,7 @@ jobs:
           WEB_STARTER_APP_DIGEST: ${{ steps.app.outputs.digest }}
           WEB_STARTER_NGINX_IMAGE: ${{ steps.release.outputs.nginx_image }}
           WEB_STARTER_NGINX_DIGEST: ${{ steps.nginx.outputs.digest }}
+          WEB_STARTER_GIT_COMMIT: ${{ github.sha }}
           WEB_STARTER_DB_ROOT_PASSWORD: validation-only
           WEB_STARTER_DB_USERNAME: web_starter
           WEB_STARTER_DB_PASSWORD: validation-only
